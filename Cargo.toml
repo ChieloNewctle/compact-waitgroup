@@ -1,0 +1,33 @@
+[package]
+name = "compact-waitgroup"
+version = "0.1.0"
+edition = "2024"
+description = "A compact asynchronous WaitGroup synchronization primitive."
+keywords = ["sync", "async", "waitgroup", "wake", "notify", "futures"]
+categories = ["concurrency", "asynchronous", "no-std"]
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/ChieloNewctle/compact-waitgroup"
+repository = "https://github.com/ChieloNewctle/compact-waitgroup"
+documentation = "https://docs.rs/compact-waitgroup"
+readme = "README.md"
+
+[features]
+futures-core = ["dep:futures-core"]
+portable-atomic = ["dep:portable-atomic"]
+compact-mono = []
+
+[dependencies]
+derive_more = { version = "2.1.1", features = ["constructor", "deref"] }
+futures-core = { version = "0.3.31", default-features = false, optional = true }
+portable-atomic = { version = "1.13.1", default-features = false, optional = true }
+
+[dev-dependencies]
+futures-executor = "0.3.31"
+futures-test = "0.3.31"
+static_assertions = "1.1.0"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)'] }
+
+[target.'cfg(loom)'.dependencies]
+loom = { version = "0.7.2", features = ["futures"] }

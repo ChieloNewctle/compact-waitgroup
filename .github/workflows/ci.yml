@@ -1,0 +1,95 @@
+name: Cargo Build & Test
+
+on:
+  push:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, assigned]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rustfmt:
+    name: Check Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - run: |
+          rustup update nightly && rustup default nightly
+          rustup component add rustfmt clippy
+      - run: |
+          cargo clippy --all-targets -- -D warnings
+          RUSTFLAGS="--cfg loom" cargo clippy --all-targets -- -D warnings
+          cargo fmt --all --check -- --config \
+            "format_code_in_doc_comments=true,wrap_comments=true"
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - run: rustup update nightly && rustup default nightly
+      - run: cargo doc --all-features --no-deps
+
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          - beta
+          - nightly
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Prepare
+        run: |
+          rustup update ${{ matrix.toolchain }}
+          rustup default ${{ matrix.toolchain }}
+          cargo install cargo-all-features
+      - run: cargo build --verbose
+      - run: cargo test --verbose
+      - name: All-features Test
+        run: |
+          cargo all-features test
+          cargo all-features test --release
+      - name: Miri Test
+        if: matrix.toolchain == 'nightly'
+        env:
+          MIRIFLAGS: "-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check"
+        run: |
+          rustup component add miri
+          cargo all-features miri test
+      - name: Loom Test
+        if: matrix.toolchain == 'stable'
+        env:
+          RUSTFLAGS: "--cfg loom"
+        run: cargo all-features test --lib --tests --release
+
+  dependabot:
+    name: Dependabot Auto-merge
+    if: ${{ github.actor == 'dependabot[bot]' && github.event_name == 'pull_request'}}
+    needs: [build-and-test, rustfmt, docs]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+      actions: write
+    steps:
+      - id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      - run: |
+          gh pr review --approve "$PR_URL"
+          gh pr merge --squash --auto "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
