@@ -3,13 +3,14 @@ name = "compact-waitgroup"
 version = "0.1.0"
 edition = "2024"
 description = "A compact asynchronous WaitGroup synchronization primitive."
-keywords = ["sync", "async", "waitgroup", "wake", "notify", "futures"]
+keywords = ["sync", "async", "waitgroup", "wake", "notify"]
 categories = ["concurrency", "asynchronous", "no-std"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/ChieloNewctle/compact-waitgroup"
 repository = "https://github.com/ChieloNewctle/compact-waitgroup"
 documentation = "https://docs.rs/compact-waitgroup"
 readme = "README.md"
+exclude = ["release-plz.toml", ".github"]
 
 [features]
 futures-core = ["dep:futures-core"]
