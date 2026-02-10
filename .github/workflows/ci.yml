@@ -64,6 +64,7 @@ jobs:
       - name: Sanitizers
         if: matrix.toolchain == 'nightly'
         run: |
+          rustup component add rust-src
           for features in "" "-F compact-mono"; do
             for flags in "--cfg tsan -Z sanitizer=thread" "-Z sanitizer=leak" "-Z sanitizer=address"; do
               RUSTFLAGS="$flags" cargo +nightly test $features \
