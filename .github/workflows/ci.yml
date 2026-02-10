@@ -80,6 +80,33 @@ jobs:
           RUSTFLAGS: "--cfg loom"
         run: cargo all-features test --lib --tests --release
 
+  test-on-multi-platforms:
+    name: Test on Multiple Platforms
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+          - os: macos-latest
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Prepare
+        run: |
+          rustup update stable
+          rustup default stable
+          cargo install cargo-all-features
+      - name: All-features Test
+        run: |
+          cargo all-features test --target ${{ matrix.target }}
+          cargo all-features test --target ${{ matrix.target }} --release
+
   dependabot:
     name: Dependabot Auto-merge
     if: ${{ github.actor == 'dependabot[bot]' && github.event_name == 'pull_request'}}
