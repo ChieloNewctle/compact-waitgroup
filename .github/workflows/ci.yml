@@ -78,7 +78,9 @@ jobs:
         if: matrix.toolchain == 'stable'
         env:
           RUSTFLAGS: "--cfg loom"
-        run: cargo all-features test --lib --tests --release
+        run: |
+          cargo test --lib --tests --release
+          cargo -F compact-mono test --lib --tests --release
 
   test-on-multi-platforms:
     name: Test on Multiple Platforms
