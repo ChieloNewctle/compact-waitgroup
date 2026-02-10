@@ -1,8 +1,8 @@
 //! A compact asynchronous `WaitGroup` synchronization primitive.
 //!
-//! This crate is designed to be lightweight and executor-agnostic.
-//! It works with any `async` runtime and supports `no_std` environments
-//! (requires `alloc`).
+//! This crate is designed to be lightweight and executor-agnostic. It works
+//! with any `async` runtime and supports `no_std` environments (requires
+//! `alloc`).
 //!
 //! # Usage
 //!
@@ -61,11 +61,6 @@
 //! | ------------------- | ---------------- | ------------------- | ----------- |
 //! | **`WaitGroup`**     | 32 bytes         | 32 bytes            | 0 bytes     |
 //! | **`MonoWaitGroup`** | **32 bytes**     | **24 bytes**        | **8 bytes** |
-//!
-//! **Note**:
-//! - Sizes include the [`core::task::Waker`] (16 bytes) and required alignment
-//!   padding.
-//! - 32 bytes is often more friendly to global memory allocators.
 #![no_std]
 extern crate alloc;
 

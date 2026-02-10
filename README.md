@@ -116,9 +116,6 @@ counter.
 | **`WaitGroup`**     | 32 bytes         | 32 bytes            | 0 bytes     |
 | **`MonoWaitGroup`** | **32 bytes**     | **24 bytes**        | **8 bytes** |
 
-**Note: Sizes include the `core::task::Waker` (16 bytes) and required alignment
-padding.**
-
 ## License
 
 - &copy; 2026 Chielo Newctle
