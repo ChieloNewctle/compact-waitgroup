@@ -7,6 +7,118 @@
 
 A compact asynchronous `WaitGroup` synchronization primitive.
 
+This crate is designed to be lightweight and executor-agnostic. It works with
+any `async` runtime and supports `no_std` environments (requires `alloc`).
+
+## Usage
+
+### `MonoWaitGroup`
+
+Using `MonoWaitGroup` for a single task:
+
+```rust
+use std::{thread, time::Duration};
+
+use compact_waitgroup::MonoWaitGroup;
+use futures_executor::block_on;
+
+fn main() {
+    block_on(async {
+        let (wg, handle) = MonoWaitGroup::new();
+
+        thread::spawn(move || {
+            println!("Worker started");
+            // Long-running task...
+            thread::sleep(Duration::from_secs(1));
+            println!("Worker finished");
+            // Handle is dropped here, signaling completion
+            handle.done();
+        });
+
+        // Wait for the task to complete
+        wg.await;
+        println!("All done!");
+    });
+}
+```
+
+### `WaitGroup`
+
+Using `WaitGroup` for multiple tasks:
+
+```rust
+use std::{iter::repeat_n, thread, time::Duration};
+
+use compact_waitgroup::WaitGroup;
+use futures_executor::block_on;
+
+fn main() {
+    block_on(async {
+        let (wg, base_handle) = WaitGroup::new();
+
+        for (i, handle) in repeat_n(base_handle, 8).enumerate() {
+            thread::spawn(move || {
+                println!("Task {i} started");
+                // Long-running task...
+                thread::sleep(Duration::from_secs(1));
+                println!("Task {i} finished");
+                // Handle is dropped here, signaling completion
+                handle.done();
+            });
+        }
+
+        // Wait for the task to complete
+        wg.await;
+        println!("All done!");
+    });
+}
+```
+
+### Tokio Example
+
+Works seamlessly with Tokio:
+
+```rust
+use std::{iter::repeat_n, time::Duration};
+
+use compact_waitgroup::WaitGroup;
+use tokio::time::sleep;
+
+#[tokio::main]
+async fn main() {
+    let (wg, base_handle) = WaitGroup::new();
+
+    for (i, handle) in repeat_n(base_handle, 8).enumerate() {
+        tokio::spawn(async move {
+            println!("Task {i} started");
+            // Long-running task...
+            sleep(Duration::from_secs(1)).await;
+            println!("Task {i} finished");
+            // Handle is dropped here, signaling completion
+            handle.done();
+        });
+    }
+
+    // Wait for the task to complete
+    wg.await;
+    println!("All done!");
+}
+```
+
+## Memory Layout
+
+This crate is optimized for size. By enabling the `compact-mono` feature,
+`MonoWaitGroup` becomes even smaller by removing the unnecessary reference
+counter.
+
+| Component           | Default (64-bit) | With `compact-mono` | Saving      |
+| ------------------- | ---------------- | ------------------- | ----------- |
+| **`WaitGroup`**     | 32 bytes         | 32 bytes            | 0 bytes     |
+| **`MonoWaitGroup`** | **32 bytes**     | **24 bytes**        | **8 bytes** |
+
+**Note: Sizes include the `core::task::Waker` (16 bytes) and required alignment
+padding.**
+
 ## License
 
 - &copy; 2026 Chielo Newctle
