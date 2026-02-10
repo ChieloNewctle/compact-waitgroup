@@ -61,14 +61,25 @@ jobs:
         run: |
           cargo all-features test
           cargo all-features test --release
+      - name: Sanitizers Test
+        if: matrix.toolchain == 'nightly'
+        run: |
+          rustup component add rust-src
+          for args in "" "-F compact-mono" "--release" "--release -F compact-mono"; do
+            for flags in "--cfg tsan -Z sanitizer=thread" "-Z sanitizer=leak" "-Z sanitizer=address"; do
+              RUSTFLAGS="$flags" cargo +nightly test $args \
+                -Z build-std --target x86_64-unknown-linux-gnu --lib --tests
+            done
+          done
       - name: Miri Test
         if: matrix.toolchain == 'nightly'
-        env:
-          MIRIFLAGS: "-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check"
         run: |
           rustup component add miri
-          cargo all-features miri test
-      - name: No-std Test
+          MIRIFLAGS="-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check" \
+            cargo all-features miri test
+          MIRIFLAGS="-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check -Zmiri-tree-borrows" \
+            cargo all-features miri test
+      - name: No-std Build Test
         if: matrix.toolchain == 'stable'
         run: |
           cargo install cross

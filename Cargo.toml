@@ -28,7 +28,7 @@ futures-test = "0.3.31"
 static_assertions = "1.1.0"
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)', 'cfg(tsan)'] }
 
 [target.'cfg(loom)'.dependencies]
 loom = { version = "0.7.2", features = ["futures"] }
