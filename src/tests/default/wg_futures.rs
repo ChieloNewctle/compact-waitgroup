@@ -243,3 +243,42 @@ async fn test_wg_await_pin_multiple_threads() {
     assert!(inspector.load());
     assert!(bg_wg.is_done());
 }
+
+#[futures_test::test]
+#[cfg(panic = "unwind")]
+async fn test_wg_threads_panic() {
+    let canary = Arc::new(SharedData::new());
+    let inspector = canary.clone();
+    let (bg_wg, bg_handle) = MonoWaitGroup::new();
+    let (wg, handle) = WaitGroup::new();
+    async move {
+        wg.await;
+        canary.store();
+        bg_handle.done();
+    }
+    .run_in_background();
+
+    assert!(!inspector.load());
+
+    #[allow(unused)]
+    let handles = core::iter::repeat_n(handle, 4)
+        .map(|h| {
+            let (wg, handle) = WaitGroup::new();
+            async move {
+                wg.await;
+                panic!();
+                h.done();
+            }
+            .run_in_background();
+            handle
+        })
+        .collect::<Box<[_]>>();
+
+    assert!(!inspector.load());
+    drop(handles);
+
+    let mut bg_wg = core::pin::pin!(bg_wg);
+    bg_wg.as_mut().await;
+    assert!(inspector.load());
+    assert!(bg_wg.is_done());
+}

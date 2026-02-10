@@ -40,6 +40,7 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         toolchain:
           - stable
@@ -67,6 +68,12 @@ jobs:
         run: |
           rustup component add miri
           cargo all-features miri test
+      - name: No-std Test
+        if: matrix.toolchain == 'stable'
+        run: |
+          cargo install cross
+          RUSTFLAGS="--cfg portable_atomic_unsafe_assume_single_core" \
+            cross build -F portable-atomic --target thumbv6m-none-eabi
       - name: Loom Test
         if: matrix.toolchain == 'stable'
         env:
