@@ -2,7 +2,7 @@ name: Release-plz
 
 on:
   workflow_run:
-    workflows: ["Cross-Platform Test"]
+    workflows: ["Cargo Build & Test"]
     branches: [main]
     types: [completed]
 
