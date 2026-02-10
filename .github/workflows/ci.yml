@@ -77,7 +77,8 @@ jobs:
           MIRIFLAGS: "-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check -Zmiri-tree-borrows"
         run: |
           rustup component add miri
-          cargo all-features miri test
+          cargo miri test
+          cargo miri test -F compact-mono
       - name: No-std Build Test
         if: matrix.toolchain == 'stable'
         run: |
