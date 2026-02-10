@@ -82,7 +82,7 @@ jobs:
 
   test-on-multi-platforms:
     name: Test on Multiple Platforms
-    if: ${{ github.ref == 'refs/heads/main' && startsWith(github.ref, 'refs/heads/ci') }}
+    if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/ci') }}
     strategy:
       fail-fast: false
       matrix:
