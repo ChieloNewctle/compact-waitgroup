@@ -93,6 +93,8 @@ impl<T: WaitGroupType> Future for WaitGroupWrapper<T> {
 
         let prev_state = self.state().fetch_and(!LOCK, atomic::AcqRel);
         if prev_state & DONE != 0 {
+            drop(unsafe { with_slot_mut(&self.0, |slot| slot.take()) });
+            self.state().fetch_or(LOCK, atomic::Release);
             return Poll::Ready(());
         }
 

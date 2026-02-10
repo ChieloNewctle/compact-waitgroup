@@ -32,6 +32,26 @@ pub(crate) unsafe trait ClonableTwinRefType {
     fn action_on_zero(&self);
 }
 
+// ThreadSanitizer does not support memory fences. To avoid false positive
+// reports in TwinRef use atomic loads for synchronization instead.
+#[cfg(tsan)]
+macro_rules! acquire {
+    ($x:expr) => {
+        $x.load(atomic::Acquire)
+    };
+}
+#[cfg(tsan)]
+#[allow(unused)]
+fn _fence_may_not_be_used() {
+    atomic::fence(atomic::Acquire);
+}
+#[cfg(not(tsan))]
+macro_rules! acquire {
+    ($x:expr) => {
+        atomic::fence(atomic::Acquire)
+    };
+}
+
 pub(super) struct TwinRefPtr<T: TwinRefType>(NonNull<T>);
 
 unsafe impl<T: TwinRefType + Sync + Send> Send for TwinRefPtr<T> {}
@@ -70,9 +90,10 @@ impl<T: TwinRefType> TwinRefPtr<T> {
 
     #[inline]
     pub unsafe fn drop_twin_ref(&mut self) {
-        if self.count().fetch_sub(1, atomic::AcqRel) != 1 {
+        if self.count().fetch_sub(1, atomic::Release) != 1 {
             return;
         }
+        acquire!(self.count());
         let raw = self.0.as_ptr();
         let _ = unsafe { Box::from_raw(raw) };
     }
@@ -127,7 +148,7 @@ impl<T: TwinRefType + ClonableTwinRefType> Drop for ClonableTwinRef<T> {
         if self.0.cloned_count().fetch_sub(1, atomic::Release) != 1 {
             return;
         }
-        atomic::fence(atomic::Acquire);
+        acquire!(self.cloned_count());
         let _guard = DropGuard(unsafe { self.0.dup() });
         self.0.action_on_zero();
     }
