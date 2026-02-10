@@ -8,7 +8,7 @@ jobs:
   release-plz-release:
     name: Release-plz release
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.repository_owner == 'ChieloNewctle' }}
+    if: ${{ github.repository_owner == 'ChieloNewctle' }}
     permissions:
       contents: write
     steps:
@@ -33,7 +33,7 @@ jobs:
     name: Release-plz PR
     needs: [release-plz-release]
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.repository_owner == 'ChieloNewctle' }}
+    if: ${{ github.repository_owner == 'ChieloNewctle' }}
     permissions:
       contents: write
       pull-requests: write
