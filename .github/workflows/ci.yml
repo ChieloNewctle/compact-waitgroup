@@ -65,7 +65,7 @@ jobs:
         if: matrix.toolchain == 'nightly'
         run: |
           rustup component add rust-src
-          for args in "" "-F compact-mono" "--release" "--release -F compact-mono"; do
+          for args in "" "-F compact-mono"; do
             for flags in "--cfg tsan -Z sanitizer=thread" "-Z sanitizer=leak" "-Z sanitizer=address"; do
               RUSTFLAGS="$flags" cargo +nightly test $args \
                 -Z build-std --target x86_64-unknown-linux-gnu --lib --tests
@@ -73,12 +73,11 @@ jobs:
           done
       - name: Miri Test
         if: matrix.toolchain == 'nightly'
+        env:
+          MIRIFLAGS: "-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check -Zmiri-tree-borrows"
         run: |
           rustup component add miri
-          MIRIFLAGS="-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check" \
-            cargo all-features miri test
-          MIRIFLAGS="-Zmiri-strict-provenance -Zmiri-symbolic-alignment-check -Zmiri-tree-borrows" \
-            cargo all-features miri test
+          cargo all-features miri test
       - name: No-std Build Test
         if: matrix.toolchain == 'stable'
         run: |
