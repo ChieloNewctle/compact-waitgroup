@@ -1,4 +1,8 @@
-//! A compact asynchronous WaitGroup synchronization primitive.
+//! A compact asynchronous `WaitGroup` synchronization primitive.
+//!
+//! This crate is designed to be lightweight and executor-agnostic.
+//! It works with any `async` runtime and supports `no_std` environments
+//! (requires `alloc`).
 //!
 //! # Usage
 //!
@@ -53,10 +57,10 @@
 //! [`MonoWaitGroup`]. It switches to a dedicated, stripped-down layout that
 //! removes the reference counter.
 //!
-//! | Component | Default (64-bit) | With `compact-mono` (64-bit) | Saving |
-//! | --- | --- | --- | --- |
-//! | **[`WaitGroup`]** | 32 bytes | 32 bytes | 0 bytes |
-//! | **[`MonoWaitGroup`]** | **32 bytes** | **24 bytes** | **8 bytes** |
+//! | Component           | Default (64-bit) | With `compact-mono` | Saving      |
+//! | ------------------- | ---------------- | ------------------- | ----------- |
+//! | **`WaitGroup`**     | 32 bytes         | 32 bytes            | 0 bytes     |
+//! | **`MonoWaitGroup`** | **32 bytes**     | **24 bytes**        | **8 bytes** |
 //!
 //! **Note**:
 //! - Sizes include the [`core::task::Waker`] (16 bytes) and required alignment

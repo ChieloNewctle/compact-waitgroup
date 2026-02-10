@@ -83,6 +83,19 @@ pub struct WorkerHandle {
 pub struct MonoWorkerHandle(TwinRef<MonoInner>);
 
 impl WaitGroup {
+    /// Creates a new `WaitGroup` and a clonable `WorkerHandle`.
+    ///
+    /// The `WaitGroup` is used to await the completion of tasks. The
+    /// `WorkerHandle` is used to signal task completion.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use compact_waitgroup::WaitGroup;
+    ///
+    /// let (wg, handle) = WaitGroup::new();
+    /// // ... distribute handle ...
+    /// ```
     pub fn new() -> (Self, WorkerHandle) {
         let inner = SharedWgInner::new();
         let (wg, handle) = TwinRef::new_clonable(inner);
@@ -92,6 +105,21 @@ impl WaitGroup {
         )
     }
 
+    /// Checks if the `WaitGroup` has completed.
+    ///
+    /// This returns `true` if all `WorkerHandle`s have been dropped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use compact_waitgroup::WaitGroup;
+    ///
+    /// let (wg, handle) = WaitGroup::new();
+    /// assert!(!wg.is_done());
+    ///
+    /// drop(handle);
+    /// assert!(wg.is_done());
+    /// ```
     #[inline]
     pub fn is_done(&self) -> bool {
         self.0.is_done()
@@ -99,12 +127,39 @@ impl WaitGroup {
 }
 
 impl MonoWaitGroup {
+    /// Creates a new `MonoWaitGroup` and a single `MonoWorkerHandle`.
+    ///
+    /// This variant is optimized for scenarios where there is exactly one
+    /// worker task. The handle cannot be cloned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use compact_waitgroup::MonoWaitGroup;
+    ///
+    /// let (wg, handle) = MonoWaitGroup::new();
+    /// ```
     pub fn new() -> (Self, MonoWorkerHandle) {
         let inner = MonoInner::new();
         let (wg, handle) = TwinRef::new_mono(inner);
         (Self(WaitGroupWrapper::new(wg)), MonoWorkerHandle(handle))
     }
 
+    /// Checks if the `MonoWaitGroup` has completed.
+    ///
+    /// This returns `true` if the `MonoWorkerHandle` has been dropped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use compact_waitgroup::MonoWaitGroup;
+    ///
+    /// let (wg, handle) = MonoWaitGroup::new();
+    /// assert!(!wg.is_done());
+    ///
+    /// drop(handle);
+    /// assert!(wg.is_done());
+    /// ```
     #[inline]
     pub fn is_done(&self) -> bool {
         self.0.is_done()

@@ -47,6 +47,7 @@ pub(crate) trait WaitGroupUtil: WaitGroupType {
         self.state().load(atomic::Acquire) & DONE != 0
     }
 
+    #[inline]
     unsafe fn send_done(&self) {
         let prev_state = self.state().fetch_or(DONE | LOCK, atomic::AcqRel);
         if prev_state & LOCK == 0
