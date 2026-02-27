@@ -1,5 +1,5 @@
 use core::{
-    ops::{Deref, DerefMut},
+    ops::Deref,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -26,9 +26,13 @@ impl<F, H> Deref for WithWorkerHandleFuture<F, H> {
     }
 }
 
-impl<F, H> DerefMut for WithWorkerHandleFuture<F, H> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
+impl<F, H> WithWorkerHandleFuture<F, H> {
+    pub fn inner_pin(self: Pin<&mut Self>) -> Pin<&mut F> {
+        self.project().inner
+    }
+
+    pub fn worker_handle(&self) -> &H {
+        &self.worker_handle
     }
 }
 
