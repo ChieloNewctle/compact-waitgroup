@@ -67,7 +67,7 @@ jobs:
           rustup component add rust-src
           for args in "" "-F compact-mono"; do
             for flags in "--cfg tsan -Z sanitizer=thread" "-Z sanitizer=leak" "-Z sanitizer=address"; do
-              RUSTFLAGS="$flags" cargo +nightly test $args \
+              RUSTFLAGS="$flags" cargo test $args \
                 -Z build-std --target x86_64-unknown-linux-gnu --lib --tests
             done
           done
