@@ -81,7 +81,7 @@ Works seamlessly with Tokio:
 ```rust
 use std::{iter::repeat_n, time::Duration};
 
-use compact_waitgroup::WaitGroup;
+use compact_waitgroup::{WaitGroup, WithWorkerHandle};
 use tokio::time::sleep;
 
 #[tokio::main]
@@ -89,14 +89,14 @@ async fn main() {
     let (wg, base_handle) = WaitGroup::new();
 
     for (i, handle) in repeat_n(base_handle, 8).enumerate() {
-        tokio::spawn(async move {
+        let task = async move {
             println!("Task {i} started");
             // Long-running task...
             sleep(Duration::from_secs(1)).await;
             println!("Task {i} finished");
-            // Handle is dropped here, signaling completion
-            handle.done();
-        });
+        }
+        .with_worker_handle(handle);
+        tokio::spawn(task);
     }
 
     // Wait for the task to complete
