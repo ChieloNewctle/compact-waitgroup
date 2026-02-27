@@ -40,6 +40,7 @@ type MonoInner = crate::state::SharedWgInner;
 /// assert!(wg.is_done());
 /// # });
 /// ```
+#[must_use]
 #[derive(Debug)]
 pub struct WaitGroup(WaitGroupWrapper<TwinRef<SharedWgInner>>);
 
@@ -69,16 +70,19 @@ pub struct WaitGroup(WaitGroupWrapper<TwinRef<SharedWgInner>>);
 /// assert!(wg.is_done());
 /// # });
 /// ```
+#[must_use]
 #[derive(Debug)]
 pub struct MonoWaitGroup(WaitGroupWrapper<TwinRef<MonoInner>>);
 
 /// Clonable worker handle.
+#[must_use]
 #[derive(Clone, Debug)]
 pub struct WorkerHandle {
     _handle: ClonableTwinRef<SharedWgInner>,
 }
 
 /// Non-clonable worker handle.
+#[must_use]
 #[derive(Debug)]
 pub struct MonoWorkerHandle(TwinRef<MonoInner>);
 
