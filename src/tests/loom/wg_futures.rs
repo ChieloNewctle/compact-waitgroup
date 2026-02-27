@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use loom::sync::Arc;
 
-use crate::{MonoWaitGroup, WaitGroup, utils::*};
+use crate::{MonoWaitGroup, WaitGroup, WithWorkerHandle, utils::*};
 
 struct SharedData(AtomicU8);
 
@@ -51,8 +51,8 @@ fn test_wg_await_background() {
         async move {
             wg.await;
             canary.store();
-            bg_handle.done();
         }
+        .with_worker_handle(bg_handle)
         .run_in_background();
         assert!(!inspector.load());
         handle.done();
@@ -72,8 +72,8 @@ fn test_wg_await_background_twice() {
         async move {
             wg.await;
             canary.store();
-            bg_handle.done();
         }
+        .with_worker_handle(bg_handle)
         .run_in_background();
         assert!(!inspector.load());
         handle_a.done();
@@ -97,8 +97,8 @@ fn test_wg_await_background_twice_rev() {
         async move {
             wg.await;
             canary.store();
-            bg_handle.done();
         }
+        .with_worker_handle(bg_handle)
         .run_in_background();
         assert!(!inspector.load());
         handle_b.done();
@@ -121,8 +121,8 @@ fn test_mono_wg_await_background() {
         async move {
             wg.await;
             canary.store();
-            bg_handle.done();
         }
+        .with_worker_handle(bg_handle)
         .run_in_background();
         assert!(!inspector.load());
         handle.done();
@@ -150,8 +150,8 @@ fn test_wg_await_multiple_repeat_n() {
         async move {
             wg.await;
             canary.store();
-            bg_handle.done();
         }
+        .with_worker_handle(bg_handle)
         .run_in_background();
 
         assert!(!inspector.load());
@@ -176,8 +176,8 @@ fn test_wg_await_multiple_repeat_with() {
         async move {
             wg.await;
             canary.store();
-            bg_handle.done();
         }
+        .with_worker_handle(bg_handle)
         .run_in_background();
 
         assert!(!inspector.load());
@@ -202,8 +202,8 @@ fn test_wg_await_pin_multiple_repeat_n() {
         async move {
             wg.await;
             canary.store();
-            bg_handle.done();
         }
+        .with_worker_handle(bg_handle)
         .run_in_background();
 
         assert!(!inspector.load());
@@ -233,8 +233,8 @@ fn test_wg_await_pin_multiple_repeat_with() {
         async move {
             wg.await;
             canary.store();
-            bg_handle.done();
         }
+        .with_worker_handle(bg_handle)
         .run_in_background();
 
         assert!(!inspector.load());
@@ -266,8 +266,8 @@ fn test_wg_await_pin_multiple_threads() {
         async move {
             wg.await;
             canary.store();
-            bg_handle.done();
         }
+        .with_worker_handle(bg_handle)
         .run_in_background();
 
         assert!(!inspector.load());
@@ -277,8 +277,8 @@ fn test_wg_await_pin_multiple_threads() {
                 let (wg, handle) = WaitGroup::new();
                 async move {
                     wg.await;
-                    h.done();
                 }
+                .with_worker_handle(h)
                 .run_in_background();
                 handle
             })

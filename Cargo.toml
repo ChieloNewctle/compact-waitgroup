@@ -18,8 +18,9 @@ portable-atomic = ["dep:portable-atomic"]
 compact-mono = []
 
 [dependencies]
-derive_more = { version = "2.1.1", default-features = false, features = ["constructor", "deref"] }
+derive_more = { version = "2.1.1", default-features = false, features = ["constructor", "deref", "into"] }
 futures-core = { version = "0.3.31", default-features = false, optional = true }
+pin-project-lite = { version = "0.2.16", default-features = false }
 portable-atomic = { version = "1.13.1", default-features = false, optional = true }
 
 [dev-dependencies]

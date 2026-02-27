@@ -69,8 +69,12 @@ mod state;
 mod twin_ref;
 mod utils;
 mod wait_group;
+mod with_worker_handle;
 
-pub use crate::wait_group::{MonoWaitGroup, MonoWorkerHandle, WaitGroup, WorkerHandle};
+pub use crate::{
+    wait_group::{MonoWaitGroup, MonoWorkerHandle, WaitGroup, WorkerHandle},
+    with_worker_handle::{WithWorkerHandle, WithWorkerHandleFuture},
+};
 
 #[cfg(test)]
 mod tests;
