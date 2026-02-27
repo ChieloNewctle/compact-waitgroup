@@ -1,6 +1,6 @@
 [package]
 name = "compact-waitgroup"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 description = "A compact asynchronous WaitGroup synchronization primitive."
 keywords = ["sync", "async", "waitgroup", "wake", "notify"]
