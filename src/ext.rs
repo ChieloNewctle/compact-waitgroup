@@ -1,5 +1,4 @@
 use core::{
-    ops::Deref,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -9,55 +8,81 @@ use pin_project_lite::pin_project;
 
 use crate::{GroupToken, MonoGroupToken};
 
-pin_project! {
-    #[derive(Debug, Into)]
-    pub struct WithWorkerHandleFuture<F, H> {
-        #[pin]
-        inner: F,
-        worker_handle: H,
-    }
-}
-
-impl<F, H> Deref for WithWorkerHandleFuture<F, H> {
-    type Target = F;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl<F, H> WithWorkerHandleFuture<F, H> {
-    pub fn inner_pin(self: Pin<&mut Self>) -> Pin<&mut F> {
-        self.project().inner
+pub trait GroupTokenExt<T>: Sized {
+    fn release_on_drop(self, token: T) -> GroupTokenReleaseOnDrop<Self, T> {
+        GroupTokenReleaseOnDrop { inner: self, token }
     }
 
-    pub fn worker_handle(&self) -> &H {
-        &self.worker_handle
-    }
-}
-
-pub trait WithWorkerHandle<H>: Sized {
-    fn with_worker_handle(self, handle: H) -> WithWorkerHandleFuture<Self, H>;
-}
-
-impl<F: Future, H: WorkerHandleType> WithWorkerHandle<H> for F {
-    fn with_worker_handle(self, handle: H) -> WithWorkerHandleFuture<Self, H> {
-        WithWorkerHandleFuture {
+    fn release_on_ready(self, token: T) -> GroupTokenReleaseOnReady<Self, T> {
+        GroupTokenReleaseOnReady {
             inner: self,
-            worker_handle: handle,
+            token: Some(token),
         }
     }
 }
 
-impl<F: Future, H: WorkerHandleType> Future for WithWorkerHandleFuture<F, H> {
-    type Output = F::Output;
+trait GroupTokenType {}
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.project().inner.poll(cx)
+impl GroupTokenType for GroupToken {}
+impl GroupTokenType for MonoGroupToken {}
+
+impl<T: GroupTokenType, F: Future> GroupTokenExt<T> for F {}
+
+pin_project! {
+    #[derive(Debug, Into)]
+    pub struct GroupTokenReleaseOnDrop<F, T> {
+        #[pin]
+        inner: F,
+        token: T,
     }
 }
 
-trait WorkerHandleType {}
+pin_project! {
+    #[derive(Debug, Into)]
+    pub struct GroupTokenReleaseOnReady<F, T> {
+        #[pin]
+        inner: F,
+        token: Option<T>,
+    }
+}
 
-impl WorkerHandleType for GroupToken {}
-impl WorkerHandleType for MonoGroupToken {}
+impl<F, T> GroupTokenReleaseOnDrop<F, T> {
+    pub fn inner_pin(self: Pin<&mut Self>) -> Pin<&mut F> {
+        self.project().inner
+    }
+
+    pub fn group_token(&self) -> &T {
+        &self.token
+    }
+}
+
+impl<F, T> GroupTokenReleaseOnReady<F, T> {
+    pub fn inner_pin(self: Pin<&mut Self>) -> Pin<&mut F> {
+        self.project().inner
+    }
+
+    pub fn group_token(&self) -> Option<&T> {
+        self.token.as_ref()
+    }
+}
+
+impl<F: Future, T> Future for GroupTokenReleaseOnDrop<F, T> {
+    type Output = F::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.inner_pin().poll(cx)
+    }
+}
+
+impl<F: Future, T> Future for GroupTokenReleaseOnReady<F, T> {
+    type Output = F::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.project();
+        let res = this.inner.poll(cx);
+        if res.is_ready() {
+            drop(this.token.take());
+        }
+        res
+    }
+}

@@ -72,7 +72,7 @@ mod twin_ref;
 mod utils;
 
 pub use crate::{
-    ext::{WithWorkerHandle, WithWorkerHandleFuture},
+    ext::{GroupTokenExt, GroupTokenReleaseOnDrop, GroupTokenReleaseOnReady},
     group::{GroupToken, MonoGroupToken, MonoWaitGroup, WaitGroup},
 };
 

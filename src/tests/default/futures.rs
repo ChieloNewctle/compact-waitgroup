@@ -3,7 +3,7 @@ use core::pin::Pin;
 use alloc::{boxed::Box, sync::Arc};
 use futures_test::future::FutureTestExt;
 
-use crate::{MonoWaitGroup, WaitGroup, WithWorkerHandle, utils::*};
+use crate::{GroupTokenExt, MonoWaitGroup, WaitGroup, utils::*};
 
 struct SharedData(AtomicU8);
 
@@ -31,7 +31,7 @@ async fn test_wg_await_background() {
         wg.await;
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
     assert!(!inspector.load());
     handle.release();
@@ -50,7 +50,7 @@ async fn test_wg_await_background_twice() {
         wg.await;
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
     assert!(!inspector.load());
     handle_a.release();
@@ -73,7 +73,7 @@ async fn test_wg_await_background_twice_rev() {
         wg.await;
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
     assert!(!inspector.load());
     handle_b.release();
@@ -95,7 +95,7 @@ async fn test_mono_wg_await_background() {
         wg.await;
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
     assert!(!inspector.load());
     handle.release();
@@ -118,7 +118,7 @@ async fn test_mono_wg_pinned_drop_in_another_thread() {
         .run_in_background();
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
     assert!(!inspector.load());
     handle.release();
@@ -143,7 +143,7 @@ async fn test_wg_await_multiple_repeat_n() {
         wg.await;
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
 
     assert!(!inspector.load());
@@ -167,7 +167,7 @@ async fn test_wg_await_multiple_repeat_with() {
         wg.await;
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
 
     assert!(!inspector.load());
@@ -191,7 +191,7 @@ async fn test_wg_await_pin_multiple_repeat_n() {
         wg.await;
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
 
     assert!(!inspector.load());
@@ -217,7 +217,7 @@ async fn test_wg_await_pin_multiple_repeat_with() {
         wg.await;
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
 
     assert!(!inspector.load());
@@ -243,7 +243,7 @@ async fn test_wg_await_pin_multiple_threads() {
         wg.await;
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
 
     assert!(!inspector.load());
@@ -280,7 +280,7 @@ async fn test_wg_threads_panic() {
         wg.await;
         canary.store();
     }
-    .with_worker_handle(bg_handle)
+    .release_on_ready(bg_handle)
     .run_in_background();
 
     assert!(!inspector.load());
@@ -292,7 +292,7 @@ async fn test_wg_threads_panic() {
                 wg.await;
                 panic!();
             }
-            .with_worker_handle(h)
+            .release_on_ready(h)
             .run_in_background();
             handle
         })
