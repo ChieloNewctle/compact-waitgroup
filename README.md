@@ -24,15 +24,15 @@ use futures_executor::block_on;
 
 fn main() {
     block_on(async {
-        let (wg, handle) = MonoWaitGroup::new();
+        let (wg, token) = MonoWaitGroup::new();
 
         thread::spawn(move || {
             println!("Worker started");
             // Long-running task...
             thread::sleep(Duration::from_secs(1));
             println!("Worker finished");
-            // Handle is dropped here, signaling completion
-            handle.done();
+            // Token is dropped here, signaling completion
+            token.release();
         });
 
         // Wait for the task to complete
@@ -54,16 +54,16 @@ use futures_executor::block_on;
 
 fn main() {
     block_on(async {
-        let (wg, base_handle) = WaitGroup::new();
+        let (wg, factory) = WaitGroup::new();
 
-        for (i, handle) in repeat_n(base_handle, 8).enumerate() {
+        for (i, token) in repeat_n(factory.into_token(), 8).enumerate() {
             thread::spawn(move || {
                 println!("Task {i} started");
                 // Long-running task...
                 thread::sleep(Duration::from_secs(1));
                 println!("Task {i} finished");
-                // Handle is dropped here, signaling completion
-                handle.done();
+                // Token is dropped here, signaling completion
+                token.release();
             });
         }
 
@@ -86,18 +86,20 @@ use tokio::time::sleep;
 
 #[tokio::main]
 async fn main() {
-    let (wg, base_handle) = WaitGroup::new();
+    let (wg, factory) = WaitGroup::new();
 
-    for (i, handle) in repeat_n(base_handle, 8).enumerate() {
-        let task = async move {
-            println!("Task {i} started");
-            // Long-running task...
-            sleep(Duration::from_secs(1)).await;
-            println!("Task {i} finished");
+    factory.scope(|token| {
+        for (i, token) in repeat_n(token, 8).enumerate() {
+            let task = async move {
+                println!("Task {i} started");
+                // Long-running task...
+                sleep(Duration::from_secs(1)).await;
+                println!("Task {i} finished");
+            }
+            .release_on_ready(token);
+            tokio::spawn(task);
         }
-        .with_worker_handle(handle);
-        tokio::spawn(task);
-    }
+    });
 
     // Wait for the task to complete
     wg.await;

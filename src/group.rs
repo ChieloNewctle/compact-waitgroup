@@ -3,7 +3,7 @@ use core::{
     task::{Context, Poll},
 };
 
-use derive_more::Debug;
+use derive_more::{Debug, Into};
 
 use crate::{
     layout::SharedLayout,
@@ -77,34 +77,42 @@ pub struct WaitGroup(#[debug("done: {}", _0.is_done())] WaitGroupWrapper<TwinRef
 pub struct MonoWaitGroup(#[debug("done: {}", _0.is_done())] WaitGroupWrapper<TwinRef<MonoLayout>>);
 
 /// Clonable group token.
-#[allow(unused)]
 #[must_use]
 #[derive(Clone, Debug)]
-pub struct GroupToken(#[debug("done: {}", _0.is_done())] ClonableTwinRef<SharedLayout>);
+pub struct GroupToken(
+    #[allow(unused)]
+    #[debug("done: {}", _0.is_done())]
+    ClonableTwinRef<SharedLayout>,
+);
 
 /// Non-clonable group token.
 #[must_use]
 #[derive(Debug)]
 pub struct MonoGroupToken(#[debug("done: {}", _0.is_done())] TwinRef<MonoLayout>);
 
+/// Factory of `GroupToken`.
+#[must_use]
+#[derive(Debug, Into)]
+pub struct GroupTokenFactory(GroupToken);
+
 impl WaitGroup {
-    /// Creates a new `WaitGroup` and a clonable `GroupToken`.
-    ///
-    /// The `WaitGroup` is used to await the completion of tasks. The
-    /// `GroupToken` is used to signal task completion.
+    /// Creates a new `WaitGroup` and a `GroupTokenFactory`.
     ///
     /// # Examples
     ///
     /// ```
     /// use compact_waitgroup::WaitGroup;
     ///
-    /// let (wg, token) = WaitGroup::new();
-    /// // ... distribute token ...
+    /// let (wg, factory) = WaitGroup::new();
+    /// // ... distribute token with factory ...
     /// ```
-    pub fn new() -> (Self, GroupToken) {
+    pub fn new() -> (Self, GroupTokenFactory) {
         let inner = SharedLayout::new();
         let (wg, token) = TwinRef::new_clonable(inner);
-        (Self(WaitGroupWrapper::new(wg)), GroupToken(token))
+        (
+            Self(WaitGroupWrapper::new(wg)),
+            GroupTokenFactory(GroupToken(token)),
+        )
     }
 
     /// Checks if the `WaitGroup` has completed.
@@ -186,6 +194,26 @@ impl Future for MonoWaitGroup {
     }
 }
 
+impl GroupTokenFactory {
+    /// Consumes the inner token.
+    ///
+    /// This is equivalent to dropping the factory.
+    #[inline]
+    pub fn release(self) {
+        drop(self);
+    }
+
+    #[inline]
+    pub fn into_token(self) -> GroupToken {
+        self.0
+    }
+
+    #[inline]
+    pub fn scope<T, F: FnOnce(GroupToken) -> T>(self, func: F) -> T {
+        func(self.into_token())
+    }
+}
+
 impl GroupToken {
     /// Consumes the token.
     ///
@@ -203,6 +231,16 @@ impl MonoGroupToken {
     #[inline]
     pub fn release(self) {
         drop(self);
+    }
+
+    #[inline]
+    pub fn into_token(self) -> Self {
+        self
+    }
+
+    #[inline]
+    pub fn scope<T, F: FnOnce(MonoGroupToken) -> T>(self, func: F) -> T {
+        func(self.into_token())
     }
 }
 

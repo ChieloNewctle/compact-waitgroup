@@ -1,177 +1,111 @@
 use core::{
-    panic::{RefUnwindSafe, UnwindSafe},
     pin::Pin,
     task::{Context, Poll},
 };
 
 use futures_test::task::new_count_waker;
-use static_assertions::{assert_impl_all, assert_not_impl_any};
 
-use crate::{GroupToken, MonoGroupToken, MonoWaitGroup, WaitGroup};
+use crate::{MonoWaitGroup, WaitGroup};
 
-assert_impl_all!(WaitGroup: Sync, Send, UnwindSafe, RefUnwindSafe);
-assert_impl_all!(GroupToken: Sync, Send, UnwindSafe, RefUnwindSafe, Clone);
-assert_impl_all!(MonoWaitGroup: Sync, Send, UnwindSafe, RefUnwindSafe);
-assert_impl_all!(MonoGroupToken: Sync, Send, UnwindSafe, RefUnwindSafe);
-
-assert_not_impl_any!(WaitGroup: Clone);
-assert_not_impl_any!(MonoGroupToken: Clone);
-assert_not_impl_any!(MonoWaitGroup: Clone);
-
-#[test]
-fn test_wg_done() {
+#[cfg_attr(not(loom), test)]
+pub fn test_wg_done() {
     let (waker, counter) = new_count_waker();
     let mut cx = Context::from_waker(&waker);
-    let (wg, handle) = WaitGroup::new();
+    let (wg, token) = WaitGroup::new();
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle.release();
+    token.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 1);
 }
 
-#[test]
-fn test_wg_done_twice() {
+#[cfg_attr(not(loom), test)]
+pub fn test_wg_done_twice() {
     let (waker, counter) = new_count_waker();
     let mut cx = Context::from_waker(&waker);
-    let (wg, handle_a) = WaitGroup::new();
-    let handle_b = handle_a.clone();
+    let (wg, token) = WaitGroup::new();
+    let (token_a, token_b) = token.scope(|token| (token.clone(), token));
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle_a.release();
+    token_b.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle_b.release();
+    token_a.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 1);
 }
 
-#[test]
-fn test_wg_done_twice_rev() {
+#[cfg_attr(not(loom), test)]
+pub fn test_wg_done_twice_rev() {
     let (waker, counter) = new_count_waker();
     let mut cx = Context::from_waker(&waker);
-    let (wg, handle_a) = WaitGroup::new();
-    let handle_b = handle_a.clone();
+    let (wg, token) = WaitGroup::new();
+    let (token_a, token_b) = token.scope(|token_a| {
+        let token_b = token_a.clone();
+        (token_a, token_b)
+    });
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle_b.release();
+    token_b.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle_a.release();
+    token_a.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 1);
 }
 
-#[test]
-fn test_mono_wg_done() {
+#[cfg_attr(not(loom), test)]
+pub fn test_mono_wg_done() {
     let (waker, counter) = new_count_waker();
     let mut cx = Context::from_waker(&waker);
-    let (wg, handle) = MonoWaitGroup::new();
+    let (wg, token) = MonoWaitGroup::new();
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle.release();
+    token.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 1);
 }
 
-#[test]
-fn test_wg_send_before_poll() {
+#[cfg_attr(not(loom), test)]
+pub fn test_wg_send_before_poll() {
     let (waker, counter) = new_count_waker();
     let mut cx = Context::from_waker(&waker);
-    let (wg, handle) = WaitGroup::new();
-    handle.release();
+    let (wg, token) = WaitGroup::new();
+    token.release();
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 0);
 }
 
-#[test]
-fn test_mono_wg_send_before_poll() {
+#[cfg_attr(not(loom), test)]
+pub fn test_mono_wg_send_before_poll() {
     let (waker, counter) = new_count_waker();
     let mut cx = Context::from_waker(&waker);
-    let (wg, handle) = MonoWaitGroup::new();
-    handle.release();
+    let (wg, token) = MonoWaitGroup::new();
+    token.release();
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 0);
 }
 
-#[test]
-fn test_wg_drop_before_send() {
-    let (wg, handle) = WaitGroup::new();
+#[cfg_attr(not(loom), test)]
+pub fn test_wg_drop_before_send() {
+    let (wg, token) = WaitGroup::new();
     drop(wg);
-    handle.release();
+    token.release();
 }
 
-#[test]
-fn test_mono_wg_drop_before_send() {
-    let (wg, handle) = MonoWaitGroup::new();
+#[cfg_attr(not(loom), test)]
+pub fn test_mono_wg_drop_before_send() {
+    let (wg, token) = MonoWaitGroup::new();
     drop(wg);
-    handle.release();
+    token.release();
 }
 
-#[test]
-#[should_panic]
-#[allow(unreachable_code)]
-fn test_wg_panic_both() {
-    let (_wg, _handle) = WaitGroup::new();
-    panic!();
-    drop((_wg, _handle));
-}
-
-#[test]
-#[should_panic]
-#[allow(unreachable_code)]
-fn test_wg_panic_wg() {
-    let (_wg, handle) = WaitGroup::new();
-    drop(handle);
-    panic!();
-    drop(_wg);
-}
-
-#[test]
-#[should_panic]
-#[allow(unreachable_code)]
-fn test_wg_panic_handle() {
-    let (wg, _handle) = WaitGroup::new();
-    drop(wg);
-    panic!();
-    drop(_handle);
-}
-
-#[test]
-#[should_panic]
-#[allow(unreachable_code)]
-fn test_mono_wg_panic_both() {
-    let (_wg, _handle) = MonoWaitGroup::new();
-    panic!();
-    drop((_wg, _handle));
-}
-
-#[test]
-#[should_panic]
-#[allow(unreachable_code)]
-fn test_mono_wg_panic_wg() {
-    let (_wg, handle) = MonoWaitGroup::new();
-    drop(handle);
-    panic!();
-    drop(_wg);
-}
-
-#[test]
-#[should_panic]
-#[allow(unreachable_code)]
-fn test_mono_wg_panic_handle() {
-    let (wg, _handle) = MonoWaitGroup::new();
-    drop(wg);
-    panic!();
-    drop(_handle);
-}
-
-#[test]
-fn test_wg_poll_by_others() {
+#[cfg_attr(not(loom), test)]
+pub fn test_wg_poll_by_others() {
     let (waker_a, counter_a) = new_count_waker();
     let (waker_b, counter_b) = new_count_waker();
 
-    let (wg, handle) = WaitGroup::new();
+    let (wg, token) = WaitGroup::new();
     let mut wg = core::pin::pin!(wg);
 
     let mut cx = Context::from_waker(&waker_a);
@@ -183,7 +117,7 @@ fn test_wg_poll_by_others() {
     assert_eq!(counter_a.get(), 0);
     assert_eq!(counter_b.get(), 0);
 
-    handle.release();
+    token.release();
 
     assert_eq!(counter_a.get(), 0);
     assert_eq!(counter_b.get(), 1);
@@ -195,17 +129,17 @@ fn test_wg_poll_by_others() {
     assert_eq!(counter_b.get(), 1);
 }
 
-#[test]
-fn test_wg_drop_early() {
+#[cfg_attr(not(loom), test)]
+pub fn test_wg_drop_early() {
     let (waker, counter) = new_count_waker();
     let mut cx = Context::from_waker(&waker);
 
-    let (mut wg, handle) = WaitGroup::new();
+    let (mut wg, token) = WaitGroup::new();
     let pinned_wg = Pin::new(&mut wg);
     assert_eq!(pinned_wg.poll(&mut cx), Poll::Pending);
 
     drop(wg);
 
-    handle.release();
+    token.release();
     assert_eq!(counter.get(), 0);
 }

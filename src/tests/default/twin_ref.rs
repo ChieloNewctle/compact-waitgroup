@@ -73,8 +73,8 @@ impl Drop for Data {
     }
 }
 
-#[test]
-fn test_twin_ref_mono() {
+#[cfg_attr(not(loom), test)]
+pub fn test_twin_ref_mono() {
     let (canary, inspector) = TwinRef::new_mono(Canary::new());
     assert_eq!(inspector.load(), 0);
 
@@ -96,8 +96,8 @@ fn test_twin_ref_mono() {
     assert_eq!(inspector.load(), 5);
 }
 
-#[test]
-fn test_twin_ref_clonable() {
+#[cfg_attr(not(loom), test)]
+pub fn test_twin_ref_clonable() {
     let (canary, inspector) = TwinRef::new_mono(Canary::new());
     assert_eq!(inspector.load(), 0);
 
