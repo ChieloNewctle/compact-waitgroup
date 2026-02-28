@@ -3,6 +3,8 @@ use core::{
     task::{Context, Poll},
 };
 
+use derive_more::Debug;
+
 use crate::{
     layout::SharedLayout,
     sync::{WaitGroupLayoutExt, WaitGroupWrapper},
@@ -10,11 +12,11 @@ use crate::{
 };
 
 #[cfg(feature = "compact-mono")]
-type MonoInner = crate::layout::MonoLayout;
+type MonoLayout = crate::layout::MonoLayout;
 #[cfg(not(feature = "compact-mono"))]
-type MonoInner = crate::layout::SharedLayout;
+type MonoLayout = crate::layout::SharedLayout;
 
-/// WaitGroup with clonable worker handles.
+/// WaitGroup with clonable group tokens.
 ///
 /// # Cancellation safety
 ///
@@ -25,12 +27,12 @@ type MonoInner = crate::layout::SharedLayout;
 /// ```rust
 /// # use compact_waitgroup::WaitGroup;
 /// # futures_executor::block_on(async {
-/// let (wg, handle) = WaitGroup::new();
+/// let (wg, token) = WaitGroup::new();
 /// let mut wg = core::pin::pin!(wg);
 ///
 /// assert!(!wg.is_done());
 ///
-/// handle.done();
+/// token.release();
 ///
 /// wg.as_mut().await;
 /// assert!(wg.is_done());
@@ -42,9 +44,9 @@ type MonoInner = crate::layout::SharedLayout;
 /// ```
 #[must_use]
 #[derive(Debug)]
-pub struct WaitGroup(WaitGroupWrapper<TwinRef<SharedLayout>>);
+pub struct WaitGroup(#[debug("done: {}", _0.is_done())] WaitGroupWrapper<TwinRef<SharedLayout>>);
 
-/// WaitGroup with a single non-clonable worker handle.
+/// WaitGroup with a single non-clonable group token.
 ///
 /// # Cancellation safety
 ///
@@ -55,12 +57,12 @@ pub struct WaitGroup(WaitGroupWrapper<TwinRef<SharedLayout>>);
 /// ```rust
 /// # use compact_waitgroup::MonoWaitGroup;
 /// # futures_executor::block_on(async {
-/// let (wg, handle) = MonoWaitGroup::new();
+/// let (wg, token) = MonoWaitGroup::new();
 /// let mut wg = core::pin::pin!(wg);
 ///
 /// assert!(!wg.is_done());
 ///
-/// handle.done();
+/// token.release();
 ///
 /// wg.as_mut().await;
 /// assert!(wg.is_done());
@@ -72,56 +74,52 @@ pub struct WaitGroup(WaitGroupWrapper<TwinRef<SharedLayout>>);
 /// ```
 #[must_use]
 #[derive(Debug)]
-pub struct MonoWaitGroup(WaitGroupWrapper<TwinRef<MonoInner>>);
+pub struct MonoWaitGroup(#[debug("done: {}", _0.is_done())] WaitGroupWrapper<TwinRef<MonoLayout>>);
 
-/// Clonable worker handle.
+/// Clonable group token.
+#[allow(unused)]
 #[must_use]
 #[derive(Clone, Debug)]
-pub struct WorkerHandle {
-    _handle: ClonableTwinRef<SharedLayout>,
-}
+pub struct GroupToken(#[debug("done: {}", _0.is_done())] ClonableTwinRef<SharedLayout>);
 
-/// Non-clonable worker handle.
+/// Non-clonable group token.
 #[must_use]
 #[derive(Debug)]
-pub struct MonoWorkerHandle(TwinRef<MonoInner>);
+pub struct MonoGroupToken(#[debug("done: {}", _0.is_done())] TwinRef<MonoLayout>);
 
 impl WaitGroup {
-    /// Creates a new `WaitGroup` and a clonable `WorkerHandle`.
+    /// Creates a new `WaitGroup` and a clonable `GroupToken`.
     ///
     /// The `WaitGroup` is used to await the completion of tasks. The
-    /// `WorkerHandle` is used to signal task completion.
+    /// `GroupToken` is used to signal task completion.
     ///
     /// # Examples
     ///
     /// ```
     /// use compact_waitgroup::WaitGroup;
     ///
-    /// let (wg, handle) = WaitGroup::new();
-    /// // ... distribute handle ...
+    /// let (wg, token) = WaitGroup::new();
+    /// // ... distribute token ...
     /// ```
-    pub fn new() -> (Self, WorkerHandle) {
+    pub fn new() -> (Self, GroupToken) {
         let inner = SharedLayout::new();
-        let (wg, handle) = TwinRef::new_clonable(inner);
-        (
-            Self(WaitGroupWrapper::new(wg)),
-            WorkerHandle { _handle: handle },
-        )
+        let (wg, token) = TwinRef::new_clonable(inner);
+        (Self(WaitGroupWrapper::new(wg)), GroupToken(token))
     }
 
     /// Checks if the `WaitGroup` has completed.
     ///
-    /// This returns `true` if all `WorkerHandle`s have been dropped.
+    /// This returns `true` if all `GroupToken`s have been dropped.
     ///
     /// # Examples
     ///
     /// ```
     /// use compact_waitgroup::WaitGroup;
     ///
-    /// let (wg, handle) = WaitGroup::new();
+    /// let (wg, token) = WaitGroup::new();
     /// assert!(!wg.is_done());
     ///
-    /// drop(handle);
+    /// drop(token);
     /// assert!(wg.is_done());
     /// ```
     #[inline]
@@ -131,37 +129,37 @@ impl WaitGroup {
 }
 
 impl MonoWaitGroup {
-    /// Creates a new `MonoWaitGroup` and a single `MonoWorkerHandle`.
+    /// Creates a new `MonoWaitGroup` and a single `MonoGroupToken`.
     ///
     /// This variant is optimized for scenarios where there is exactly one
-    /// worker task. The handle cannot be cloned.
+    /// worker task. The token cannot be cloned.
     ///
     /// # Examples
     ///
     /// ```
     /// use compact_waitgroup::MonoWaitGroup;
     ///
-    /// let (wg, handle) = MonoWaitGroup::new();
+    /// let (wg, token) = MonoWaitGroup::new();
     /// ```
-    pub fn new() -> (Self, MonoWorkerHandle) {
-        let inner = MonoInner::new();
-        let (wg, handle) = TwinRef::new_mono(inner);
-        (Self(WaitGroupWrapper::new(wg)), MonoWorkerHandle(handle))
+    pub fn new() -> (Self, MonoGroupToken) {
+        let inner = MonoLayout::new();
+        let (wg, token) = TwinRef::new_mono(inner);
+        (Self(WaitGroupWrapper::new(wg)), MonoGroupToken(token))
     }
 
     /// Checks if the `MonoWaitGroup` has completed.
     ///
-    /// This returns `true` if the `MonoWorkerHandle` has been dropped.
+    /// This returns `true` if the `MonoGroupToken` has been dropped.
     ///
     /// # Examples
     ///
     /// ```
     /// use compact_waitgroup::MonoWaitGroup;
     ///
-    /// let (wg, handle) = MonoWaitGroup::new();
+    /// let (wg, token) = MonoWaitGroup::new();
     /// assert!(!wg.is_done());
     ///
-    /// drop(handle);
+    /// drop(token);
     /// assert!(wg.is_done());
     /// ```
     #[inline]
@@ -188,27 +186,27 @@ impl Future for MonoWaitGroup {
     }
 }
 
-impl WorkerHandle {
-    /// Consumes the handle.
+impl GroupToken {
+    /// Consumes the token.
     ///
-    /// This is equivalent to dropping the handle.
+    /// This is equivalent to dropping the token.
     #[inline]
-    pub fn done(self) {
+    pub fn release(self) {
         drop(self);
     }
 }
 
-impl MonoWorkerHandle {
-    /// Consumes the handle.
+impl MonoGroupToken {
+    /// Consumes the token.
     ///
-    /// This is equivalent to dropping the handle.
+    /// This is equivalent to dropping the token.
     #[inline]
-    pub fn done(self) {
+    pub fn release(self) {
         drop(self);
     }
 }
 
-impl Drop for MonoWorkerHandle {
+impl Drop for MonoGroupToken {
     #[inline]
     fn drop(&mut self) {
         unsafe {

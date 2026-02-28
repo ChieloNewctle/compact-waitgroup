@@ -34,7 +34,7 @@ async fn test_wg_await_background() {
     .with_worker_handle(bg_handle)
     .run_in_background();
     assert!(!inspector.load());
-    handle.done();
+    handle.release();
     bg_wg.await;
     assert!(inspector.load());
 }
@@ -53,11 +53,11 @@ async fn test_wg_await_background_twice() {
     .with_worker_handle(bg_handle)
     .run_in_background();
     assert!(!inspector.load());
-    handle_a.done();
+    handle_a.release();
     for _ in 0..100 {
         assert!(!inspector.load());
     }
-    handle_b.done();
+    handle_b.release();
     bg_wg.await;
     assert!(inspector.load());
 }
@@ -76,11 +76,11 @@ async fn test_wg_await_background_twice_rev() {
     .with_worker_handle(bg_handle)
     .run_in_background();
     assert!(!inspector.load());
-    handle_b.done();
+    handle_b.release();
     for _ in 0..100 {
         assert!(!inspector.load());
     }
-    handle_a.done();
+    handle_a.release();
     bg_wg.await;
     assert!(inspector.load());
 }
@@ -98,7 +98,7 @@ async fn test_mono_wg_await_background() {
     .with_worker_handle(bg_handle)
     .run_in_background();
     assert!(!inspector.load());
-    handle.done();
+    handle.release();
     bg_wg.await;
     assert!(inspector.load());
 }
@@ -121,7 +121,7 @@ async fn test_mono_wg_pinned_drop_in_another_thread() {
     .with_worker_handle(bg_handle)
     .run_in_background();
     assert!(!inspector.load());
-    handle.done();
+    handle.release();
     bg_wg.await;
     assert!(inspector.load());
 }
@@ -129,7 +129,7 @@ async fn test_mono_wg_pinned_drop_in_another_thread() {
 #[futures_test::test]
 async fn test_wg_await() {
     let (wg, handle) = WaitGroup::new();
-    handle.done();
+    handle.release();
     wg.await;
 }
 
@@ -150,7 +150,7 @@ async fn test_wg_await_multiple_repeat_n() {
 
     for handle in core::iter::repeat_n(handle, 100) {
         assert!(!inspector.load());
-        handle.done();
+        handle.release();
     }
 
     bg_wg.await;
@@ -174,7 +174,7 @@ async fn test_wg_await_multiple_repeat_with() {
 
     for handle in core::iter::repeat_with(move || handle.clone()).take(100) {
         assert!(!inspector.load());
-        handle.done();
+        handle.release();
     }
 
     bg_wg.await;
@@ -198,7 +198,7 @@ async fn test_wg_await_pin_multiple_repeat_n() {
 
     for handle in core::iter::repeat_n(handle, 100) {
         assert!(!inspector.load());
-        handle.done();
+        handle.release();
     }
 
     let mut bg_wg = Pin::new(&mut bg_wg);
@@ -224,7 +224,7 @@ async fn test_wg_await_pin_multiple_repeat_with() {
 
     for handle in core::iter::repeat_with(move || handle.clone()).take(100) {
         assert!(!inspector.load());
-        handle.done();
+        handle.release();
     }
 
     let mut bg_wg = Pin::new(&mut bg_wg);
@@ -253,7 +253,7 @@ async fn test_wg_await_pin_multiple_threads() {
             let (wg, handle) = WaitGroup::new();
             async move {
                 wg.await;
-                h.done();
+                h.release();
             }
             .run_in_background();
             handle
