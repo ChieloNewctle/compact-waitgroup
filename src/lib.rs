@@ -64,16 +64,16 @@
 #![no_std]
 extern crate alloc;
 
-mod core_impl;
-mod state;
+mod ext;
+mod group;
+mod layout;
+mod sync;
 mod twin_ref;
 mod utils;
-mod wait_group;
-mod with_worker_handle;
 
 pub use crate::{
-    wait_group::{MonoWaitGroup, MonoWorkerHandle, WaitGroup, WorkerHandle},
-    with_worker_handle::{WithWorkerHandle, WithWorkerHandleFuture},
+    ext::{WithWorkerHandle, WithWorkerHandleFuture},
+    group::{MonoWaitGroup, MonoWorkerHandle, WaitGroup, WorkerHandle},
 };
 
 #[cfg(test)]

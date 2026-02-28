@@ -17,7 +17,7 @@ use crate::utils::*;
 ///
 /// - `count` must be a field exclusively reserved for `TwinRefType` and
 ///   initialized to `2`.
-pub(crate) unsafe trait TwinRefType {
+pub(crate) unsafe trait TwinRefLayout {
     fn count(&self) -> &AtomicU8;
 }
 
@@ -27,7 +27,7 @@ pub(crate) unsafe trait TwinRefType {
 ///   `ClonableTwinRefType`, and initialized to `1`.
 /// - `action_on_zero` will be called only once just after `cloned_count`
 ///   reaches zero.
-pub(crate) unsafe trait ClonableTwinRefType {
+pub(crate) unsafe trait ClonableTwinRefLayout {
     fn cloned_count(&self) -> &AtomicUsize;
     fn action_on_zero(&self);
 }
@@ -47,19 +47,20 @@ fn _fence_may_not_be_used() {
 }
 #[cfg(not(tsan))]
 macro_rules! acquire {
-    ($x:expr) => {
+    ($_:expr) => {
         atomic::fence(atomic::Acquire)
     };
 }
 
-pub(super) struct TwinRefPtr<T: TwinRefType>(NonNull<T>);
+#[must_use]
+pub(super) struct TwinRefPtr<T: TwinRefLayout>(NonNull<T>);
 
-unsafe impl<T: TwinRefType + Sync + Send> Send for TwinRefPtr<T> {}
-unsafe impl<T: TwinRefType + Sync + Send> Sync for TwinRefPtr<T> {}
-impl<T: TwinRefType + RefUnwindSafe> UnwindSafe for TwinRefPtr<T> {}
-impl<T: TwinRefType + RefUnwindSafe> RefUnwindSafe for TwinRefPtr<T> {}
+unsafe impl<T: TwinRefLayout + Sync + Send> Send for TwinRefPtr<T> {}
+unsafe impl<T: TwinRefLayout + Sync + Send> Sync for TwinRefPtr<T> {}
+impl<T: TwinRefLayout + RefUnwindSafe> UnwindSafe for TwinRefPtr<T> {}
+impl<T: TwinRefLayout + RefUnwindSafe> RefUnwindSafe for TwinRefPtr<T> {}
 
-impl<T: TwinRefType> Deref for TwinRefPtr<T> {
+impl<T: TwinRefLayout> Deref for TwinRefPtr<T> {
     type Target = T;
 
     #[inline]
@@ -68,7 +69,7 @@ impl<T: TwinRefType> Deref for TwinRefPtr<T> {
     }
 }
 
-impl<T: TwinRefType + Debug> Debug for TwinRefPtr<T> {
+impl<T: TwinRefLayout + Debug> Debug for TwinRefPtr<T> {
     #[inline]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let inner: &T = self;
@@ -76,20 +77,20 @@ impl<T: TwinRefType + Debug> Debug for TwinRefPtr<T> {
     }
 }
 
-impl<T: TwinRefType> TwinRefPtr<T> {
+impl<T: TwinRefLayout> TwinRefPtr<T> {
     #[inline]
-    pub unsafe fn new(data: T) -> TwinRefPtr<T> {
+    unsafe fn new(data: T) -> TwinRefPtr<T> {
         let data = Box::new(data);
         TwinRefPtr(Box::leak(data).into())
     }
 
     #[inline]
-    pub unsafe fn dup(&self) -> Self {
+    unsafe fn dup(&self) -> Self {
         Self(self.0)
     }
 
     #[inline]
-    pub unsafe fn drop_twin_ref(&mut self) {
+    unsafe fn drop_twin_ref(&mut self) {
         if self.count().fetch_sub(1, atomic::Release) != 1 {
             return;
         }
@@ -100,12 +101,12 @@ impl<T: TwinRefType> TwinRefPtr<T> {
 }
 
 #[derive(Debug, Deref)]
-pub(crate) struct TwinRef<T: TwinRefType>(TwinRefPtr<T>);
+pub(crate) struct TwinRef<T: TwinRefLayout>(TwinRefPtr<T>);
 
 #[derive(Debug, Deref)]
-pub(crate) struct ClonableTwinRef<T: TwinRefType + ClonableTwinRefType>(TwinRefPtr<T>);
+pub(crate) struct ClonableTwinRef<T: TwinRefLayout + ClonableTwinRefLayout>(TwinRefPtr<T>);
 
-impl<T: TwinRefType> TwinRef<T> {
+impl<T: TwinRefLayout> TwinRef<T> {
     #[must_use]
     #[inline]
     pub fn new_mono(data: T) -> (Self, Self) {
@@ -114,7 +115,7 @@ impl<T: TwinRefType> TwinRef<T> {
     }
 }
 
-impl<T: TwinRefType + ClonableTwinRefType> TwinRef<T> {
+impl<T: TwinRefLayout + ClonableTwinRefLayout> TwinRef<T> {
     #[must_use]
     #[inline]
     pub fn new_clonable(data: T) -> (Self, ClonableTwinRef<T>) {
@@ -123,7 +124,7 @@ impl<T: TwinRefType + ClonableTwinRefType> TwinRef<T> {
     }
 }
 
-impl<T: TwinRefType> Drop for TwinRef<T> {
+impl<T: TwinRefLayout> Drop for TwinRef<T> {
     #[inline]
     fn drop(&mut self) {
         unsafe {
@@ -132,9 +133,10 @@ impl<T: TwinRefType> Drop for TwinRef<T> {
     }
 }
 
-struct DropGuard<T: TwinRefType + ClonableTwinRefType>(TwinRefPtr<T>);
+#[must_use]
+struct DropGuard<T: TwinRefLayout + ClonableTwinRefLayout>(TwinRefPtr<T>);
 
-impl<T: TwinRefType + ClonableTwinRefType> Drop for DropGuard<T> {
+impl<T: TwinRefLayout + ClonableTwinRefLayout> Drop for DropGuard<T> {
     #[inline]
     fn drop(&mut self) {
         unsafe {
@@ -143,19 +145,19 @@ impl<T: TwinRefType + ClonableTwinRefType> Drop for DropGuard<T> {
     }
 }
 
-impl<T: TwinRefType + ClonableTwinRefType> Drop for ClonableTwinRef<T> {
+impl<T: TwinRefLayout + ClonableTwinRefLayout> Drop for ClonableTwinRef<T> {
     #[inline]
     fn drop(&mut self) {
-        if self.0.cloned_count().fetch_sub(1, atomic::Release) != 1 {
+        if self.cloned_count().fetch_sub(1, atomic::Release) != 1 {
             return;
         }
         acquire!(self.cloned_count());
-        let _guard = DropGuard(unsafe { self.0.dup() });
-        self.0.action_on_zero();
+        let _guard = DropGuard(unsafe { self.dup() });
+        self.action_on_zero();
     }
 }
 
-impl<T: TwinRefType + ClonableTwinRefType> Clone for ClonableTwinRef<T> {
+impl<T: TwinRefLayout + ClonableTwinRefLayout> Clone for ClonableTwinRef<T> {
     #[inline]
     fn clone(&self) -> Self {
         // Using a relaxed ordering is alright here, as knowledge of the
@@ -169,24 +171,24 @@ impl<T: TwinRefType + ClonableTwinRefType> Clone for ClonableTwinRef<T> {
         // another must already provide any required synchronization.
         //
         // [1]: (www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html)
-        let old_size = self.0.cloned_count().fetch_add(1, atomic::Relaxed);
+        let old_size = self.cloned_count().fetch_add(1, atomic::Relaxed);
 
         if old_size > usize::MAX / 2 {
             panic!("reference count overflow");
         }
 
-        Self(unsafe { self.0.dup() })
+        Self(unsafe { self.dup() })
     }
 }
 
-impl<T: TwinRefType> Borrow<T> for TwinRef<T> {
+impl<T: TwinRefLayout> Borrow<T> for TwinRef<T> {
     #[inline]
     fn borrow(&self) -> &T {
         self
     }
 }
 
-impl<T: TwinRefType + ClonableTwinRefType> Borrow<T> for ClonableTwinRef<T> {
+impl<T: TwinRefLayout + ClonableTwinRefLayout> Borrow<T> for ClonableTwinRef<T> {
     #[inline]
     fn borrow(&self) -> &T {
         self

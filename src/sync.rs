@@ -15,32 +15,12 @@ pub(crate) type WaitGroupData = Option<Waker>;
 ///   initialized to `0`.
 /// - `slot` must be a field exclusively reserved for `WaitGroupType`, and the
 ///   inner value should be initialized to `None`.
-pub(crate) unsafe trait WaitGroupType: Sized {
+pub(crate) unsafe trait WaitGroupLayout: Sized {
     fn state(&self) -> &AtomicU8;
     unsafe fn slot(&self) -> &UnsafeCell<WaitGroupData>;
 }
 
-const DONE: u8 = 0b01;
-const LOCK: u8 = 0b10;
-
-#[inline]
-unsafe fn with_slot_mut<T: WaitGroupType, R, F: FnOnce(&mut WaitGroupData) -> R>(
-    val: &T,
-    f: F,
-) -> R {
-    #[cfg(not(loom))]
-    {
-        f(unsafe { &mut *val.slot().get() })
-    }
-    #[cfg(loom)]
-    {
-        unsafe { val.slot() }
-            .get()
-            .with(|ptr| f(unsafe { &mut *ptr.cast_mut() }))
-    }
-}
-
-pub(crate) trait WaitGroupUtil: WaitGroupType {
+pub(crate) trait WaitGroupLayoutExt: WaitGroupLayout {
     #[inline]
     fn is_done(&self) -> bool {
         self.state().load(atomic::Acquire) & DONE != 0
@@ -57,13 +37,33 @@ pub(crate) trait WaitGroupUtil: WaitGroupType {
     }
 }
 
-impl<T: WaitGroupType> WaitGroupUtil for T {}
+impl<T: WaitGroupLayout> WaitGroupLayoutExt for T {}
 
 #[must_use]
 #[derive(Debug, Constructor, Deref)]
-pub(crate) struct WaitGroupWrapper<T: WaitGroupType>(T);
+pub(crate) struct WaitGroupWrapper<T: WaitGroupLayout>(T);
 
-impl<T: WaitGroupType> Future for WaitGroupWrapper<T> {
+const DONE: u8 = 0b01;
+const LOCK: u8 = 0b10;
+
+#[inline]
+unsafe fn with_slot_mut<T: WaitGroupLayout, R, F: FnOnce(&mut WaitGroupData) -> R>(
+    val: &T,
+    f: F,
+) -> R {
+    #[cfg(not(loom))]
+    {
+        f(unsafe { &mut *val.slot().get() })
+    }
+    #[cfg(loom)]
+    {
+        unsafe { val.slot() }
+            .get()
+            .with(|ptr| f(unsafe { &mut *ptr.cast_mut() }))
+    }
+}
+
+impl<T: WaitGroupLayout> Future for WaitGroupWrapper<T> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -102,7 +102,7 @@ impl<T: WaitGroupType> Future for WaitGroupWrapper<T> {
     }
 }
 
-impl<T: WaitGroupType> Drop for WaitGroupWrapper<T> {
+impl<T: WaitGroupLayout> Drop for WaitGroupWrapper<T> {
     #[inline]
     fn drop(&mut self) {
         let prev_state = self.state().fetch_or(LOCK, atomic::Acquire);
@@ -114,14 +114,7 @@ impl<T: WaitGroupType> Drop for WaitGroupWrapper<T> {
     }
 }
 
-#[cfg(feature = "futures-core")]
-impl<T: WaitGroupType> futures_core::FusedFuture for WaitGroupWrapper<T> {
-    #[inline]
-    fn is_terminated(&self) -> bool {
-        self.is_done()
-    }
-}
-
+#[must_use]
 struct UnlockGuard<'a>(&'a AtomicU8);
 
 impl<'a> UnlockGuard<'a> {
