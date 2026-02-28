@@ -23,7 +23,6 @@ pub(crate) unsafe trait WaitGroupType: Sized {
 const DONE: u8 = 0b01;
 const LOCK: u8 = 0b10;
 
-#[allow(clippy::mut_from_ref)]
 #[inline]
 unsafe fn with_slot_mut<T: WaitGroupType, R, F: FnOnce(&mut WaitGroupData) -> R>(
     val: &T,
