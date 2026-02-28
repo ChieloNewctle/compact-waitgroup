@@ -81,7 +81,7 @@ Works seamlessly with Tokio:
 ```rust
 use std::{iter::repeat_n, time::Duration};
 
-use compact_waitgroup::{WaitGroup, WithWorkerHandle};
+use compact_waitgroup::{GroupTokenExt, WaitGroup};
 use tokio::time::sleep;
 
 #[tokio::main]
@@ -101,8 +101,17 @@ async fn main() {
         }
     });
 
-    // Wait for the task to complete
-    wg.await;
+    tokio::pin!(wg);
+    loop {
+        tokio::select! {
+            _ = sleep(Duration::from_millis(200)) => {
+                println!("Running...");
+            }
+            _ = &mut wg => {
+                break;
+            }
+        };
+    }
     println!("All done!");
 }
 ```

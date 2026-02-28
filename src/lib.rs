@@ -45,6 +45,29 @@
 //! # });
 //! ```
 //!
+//! ## With `async` Runtime
+//!
+//! ```rust
+//! # use core::{iter::repeat_n, mem::drop as spawn, time::Duration};
+//! # use compact_waitgroup::{GroupTokenExt, WaitGroup};
+//! # let sleep = |_| async {};
+//! # futures_executor::block_on(async {
+//! let (wg, factory) = WaitGroup::new();
+//! for (i, token) in repeat_n(factory.into_token(), 8).enumerate() {
+//!     let task = async move {
+//!         println!("Task {i} started");
+//!         // Long-running task...
+//!         sleep(Duration::from_secs(1)).await;
+//!         println!("Task {i} finished");
+//!     }
+//!     .release_on_ready(token);
+//!     spawn(task);
+//! }
+//! // Wait for all tasks to complete
+//! wg.await;
+//! # });
+//! ```
+//!
 //! # Memory Layout
 //!
 //! This crate is designed to be extremely lightweight. The memory footprint
