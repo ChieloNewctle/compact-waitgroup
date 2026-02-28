@@ -11,11 +11,11 @@
 //! ```rust
 //! # use compact_waitgroup::MonoWaitGroup;
 //! # futures_executor::block_on(async {
-//! let (wg, handle) = MonoWaitGroup::new();
+//! let (wg, token) = MonoWaitGroup::new();
 //! assert!(!wg.is_done());
 //! std::thread::spawn(move || {
 //!     // Long-running task
-//!     handle.done();
+//!     token.release();
 //! });
 //! // Wait for the task to complete
 //! wg.await;
@@ -27,16 +27,16 @@
 //! ```rust
 //! # use compact_waitgroup::WaitGroup;
 //! # futures_executor::block_on(async {
-//! let (wg, handle) = WaitGroup::new();
-//! let handle_cloned = handle.clone();
+//! let (wg, token) = WaitGroup::new();
+//! let token_cloned = token.clone();
 //! assert!(!wg.is_done());
 //! std::thread::spawn(move || {
 //!     // Long-running task
-//!     handle_cloned.done();
+//!     token_cloned.release();
 //! });
 //! std::thread::spawn(move || {
 //!     // Another long-running task
-//!     handle.done();
+//!     token.release();
 //! });
 //! // Wait for all tasks to complete
 //! wg.await;
@@ -51,7 +51,7 @@
 //! By default, [`MonoWaitGroup`] shares the same underlying memory structure as
 //! [`WaitGroup`]. However, this means [`MonoWaitGroup`] carries a `usize` field
 //! for reference counting of workers, which is redundant for the singly-owned
-//! [`MonoWorkerHandle`].
+//! [`MonoGroupToken`].
 //!
 //! Enabling the `compact-mono` feature changes the internal definition of
 //! [`MonoWaitGroup`]. It switches to a dedicated, stripped-down layout that
@@ -73,7 +73,7 @@ mod utils;
 
 pub use crate::{
     ext::{WithWorkerHandle, WithWorkerHandleFuture},
-    group::{MonoWaitGroup, MonoWorkerHandle, WaitGroup, WorkerHandle},
+    group::{GroupToken, MonoGroupToken, MonoWaitGroup, WaitGroup},
 };
 
 #[cfg(test)]

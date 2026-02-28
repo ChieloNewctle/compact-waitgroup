@@ -55,7 +55,7 @@ fn test_wg_await_background() {
         .with_worker_handle(bg_handle)
         .run_in_background();
         assert!(!inspector.load());
-        handle.done();
+        handle.release();
         bg_wg.wait_in_place();
         assert!(inspector.load());
     });
@@ -76,11 +76,11 @@ fn test_wg_await_background_twice() {
         .with_worker_handle(bg_handle)
         .run_in_background();
         assert!(!inspector.load());
-        handle_a.done();
+        handle_a.release();
         for _ in 0..100 {
             assert!(!inspector.load());
         }
-        handle_b.done();
+        handle_b.release();
         bg_wg.wait_in_place();
         assert!(inspector.load());
     })
@@ -101,11 +101,11 @@ fn test_wg_await_background_twice_rev() {
         .with_worker_handle(bg_handle)
         .run_in_background();
         assert!(!inspector.load());
-        handle_b.done();
+        handle_b.release();
         for _ in 0..100 {
             assert!(!inspector.load());
         }
-        handle_a.done();
+        handle_a.release();
         bg_wg.wait_in_place();
         assert!(inspector.load());
     })
@@ -125,7 +125,7 @@ fn test_mono_wg_await_background() {
         .with_worker_handle(bg_handle)
         .run_in_background();
         assert!(!inspector.load());
-        handle.done();
+        handle.release();
         bg_wg.wait_in_place();
         assert!(inspector.load());
     })
@@ -135,7 +135,7 @@ fn test_mono_wg_await_background() {
 fn test_wg_await() {
     loom::model(|| {
         let (wg, handle) = WaitGroup::new();
-        handle.done();
+        handle.release();
         wg.wait_in_place();
     })
 }
@@ -158,7 +158,7 @@ fn test_wg_await_multiple_repeat_n() {
 
         for handle in core::iter::repeat_n(handle, 100) {
             assert!(!inspector.load());
-            handle.done();
+            handle.release();
         }
 
         bg_wg.wait_in_place();
@@ -184,7 +184,7 @@ fn test_wg_await_multiple_repeat_with() {
 
         for handle in core::iter::repeat_with(move || handle.clone()).take(100) {
             assert!(!inspector.load());
-            handle.done();
+            handle.release();
         }
 
         bg_wg.wait_in_place();
@@ -210,7 +210,7 @@ fn test_wg_await_pin_multiple_repeat_n() {
 
         for handle in core::iter::repeat_n(handle, 100) {
             assert!(!inspector.load());
-            handle.done();
+            handle.release();
         }
 
         async move {
@@ -241,7 +241,7 @@ fn test_wg_await_pin_multiple_repeat_with() {
 
         for handle in core::iter::repeat_with(move || handle.clone()).take(100) {
             assert!(!inspector.load());
-            handle.done();
+            handle.release();
         }
 
         async move {

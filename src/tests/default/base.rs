@@ -7,15 +7,15 @@ use core::{
 use futures_test::task::new_count_waker;
 use static_assertions::{assert_impl_all, assert_not_impl_any};
 
-use crate::{MonoWaitGroup, MonoWorkerHandle, WaitGroup, WorkerHandle};
+use crate::{GroupToken, MonoGroupToken, MonoWaitGroup, WaitGroup};
 
 assert_impl_all!(WaitGroup: Sync, Send, UnwindSafe, RefUnwindSafe);
-assert_impl_all!(WorkerHandle: Sync, Send, UnwindSafe, RefUnwindSafe, Clone);
+assert_impl_all!(GroupToken: Sync, Send, UnwindSafe, RefUnwindSafe, Clone);
 assert_impl_all!(MonoWaitGroup: Sync, Send, UnwindSafe, RefUnwindSafe);
-assert_impl_all!(MonoWorkerHandle: Sync, Send, UnwindSafe, RefUnwindSafe);
+assert_impl_all!(MonoGroupToken: Sync, Send, UnwindSafe, RefUnwindSafe);
 
 assert_not_impl_any!(WaitGroup: Clone);
-assert_not_impl_any!(MonoWorkerHandle: Clone);
+assert_not_impl_any!(MonoGroupToken: Clone);
 assert_not_impl_any!(MonoWaitGroup: Clone);
 
 #[test]
@@ -25,7 +25,7 @@ fn test_wg_done() {
     let (wg, handle) = WaitGroup::new();
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle.done();
+    handle.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 1);
 }
@@ -38,9 +38,9 @@ fn test_wg_done_twice() {
     let handle_b = handle_a.clone();
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle_a.done();
+    handle_a.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle_b.done();
+    handle_b.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 1);
 }
@@ -53,9 +53,9 @@ fn test_wg_done_twice_rev() {
     let handle_b = handle_a.clone();
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle_b.done();
+    handle_b.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle_a.done();
+    handle_a.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 1);
 }
@@ -67,7 +67,7 @@ fn test_mono_wg_done() {
     let (wg, handle) = MonoWaitGroup::new();
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Pending);
-    handle.done();
+    handle.release();
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 1);
 }
@@ -77,7 +77,7 @@ fn test_wg_send_before_poll() {
     let (waker, counter) = new_count_waker();
     let mut cx = Context::from_waker(&waker);
     let (wg, handle) = WaitGroup::new();
-    handle.done();
+    handle.release();
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 0);
@@ -88,7 +88,7 @@ fn test_mono_wg_send_before_poll() {
     let (waker, counter) = new_count_waker();
     let mut cx = Context::from_waker(&waker);
     let (wg, handle) = MonoWaitGroup::new();
-    handle.done();
+    handle.release();
     let mut rx = core::pin::pin!(wg);
     assert_eq!(rx.as_mut().poll(&mut cx), Poll::Ready(()));
     assert_eq!(counter.get(), 0);
@@ -98,14 +98,14 @@ fn test_mono_wg_send_before_poll() {
 fn test_wg_drop_before_send() {
     let (wg, handle) = WaitGroup::new();
     drop(wg);
-    handle.done();
+    handle.release();
 }
 
 #[test]
 fn test_mono_wg_drop_before_send() {
     let (wg, handle) = MonoWaitGroup::new();
     drop(wg);
-    handle.done();
+    handle.release();
 }
 
 #[test]
@@ -183,7 +183,7 @@ fn test_wg_poll_by_others() {
     assert_eq!(counter_a.get(), 0);
     assert_eq!(counter_b.get(), 0);
 
-    handle.done();
+    handle.release();
 
     assert_eq!(counter_a.get(), 0);
     assert_eq!(counter_b.get(), 1);
@@ -206,6 +206,6 @@ fn test_wg_drop_early() {
 
     drop(wg);
 
-    handle.done();
+    handle.release();
     assert_eq!(counter.get(), 0);
 }

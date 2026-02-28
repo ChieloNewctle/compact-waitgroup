@@ -3,7 +3,7 @@ use core::{
     panic::{RefUnwindSafe, UnwindSafe},
 };
 
-use derive_more::{Debug, Deref};
+use derive_more::Deref;
 
 use crate::{
     sync::{WaitGroupData, WaitGroupLayout, WaitGroupLayoutExt},
@@ -12,7 +12,6 @@ use crate::{
 };
 
 #[derive(Debug)]
-#[debug("done: {}", self.is_done())]
 pub(crate) struct MonoLayout {
     twin_count: AtomicU8,
     state: AtomicU8,
@@ -42,7 +41,6 @@ impl MonoLayout {
 }
 
 #[derive(Debug, Deref)]
-#[debug("done: {}", self.is_done())]
 pub(crate) struct SharedLayout {
     cloned_count: AtomicUsize,
     #[deref]

@@ -7,7 +7,7 @@ use core::{
 use derive_more::Into;
 use pin_project_lite::pin_project;
 
-use crate::{MonoWorkerHandle, WorkerHandle};
+use crate::{GroupToken, MonoGroupToken};
 
 pin_project! {
     #[derive(Debug, Into)]
@@ -59,5 +59,5 @@ impl<F: Future, H: WorkerHandleType> Future for WithWorkerHandleFuture<F, H> {
 
 trait WorkerHandleType {}
 
-impl WorkerHandleType for WorkerHandle {}
-impl WorkerHandleType for MonoWorkerHandle {}
+impl WorkerHandleType for GroupToken {}
+impl WorkerHandleType for MonoGroupToken {}
