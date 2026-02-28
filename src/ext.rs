@@ -6,13 +6,15 @@ use core::{
 use derive_more::Into;
 use pin_project_lite::pin_project;
 
-use crate::{GroupToken, MonoGroupToken};
+use crate::{GroupToken, MonoGroupToken, group::GroupTokenFactory};
 
 pub trait GroupTokenExt<T>: Sized {
+    #[inline]
     fn release_on_drop(self, token: T) -> GroupTokenReleaseOnDrop<Self, T> {
         GroupTokenReleaseOnDrop { inner: self, token }
     }
 
+    #[inline]
     fn release_on_ready(self, token: T) -> GroupTokenReleaseOnReady<Self, T> {
         GroupTokenReleaseOnReady {
             inner: self,
@@ -23,6 +25,7 @@ pub trait GroupTokenExt<T>: Sized {
 
 trait GroupTokenType {}
 
+impl GroupTokenType for GroupTokenFactory {}
 impl GroupTokenType for GroupToken {}
 impl GroupTokenType for MonoGroupToken {}
 
@@ -47,20 +50,24 @@ pin_project! {
 }
 
 impl<F, T> GroupTokenReleaseOnDrop<F, T> {
+    #[inline]
     pub fn inner_pin(self: Pin<&mut Self>) -> Pin<&mut F> {
         self.project().inner
     }
 
+    #[inline]
     pub fn group_token(&self) -> &T {
         &self.token
     }
 }
 
 impl<F, T> GroupTokenReleaseOnReady<F, T> {
+    #[inline]
     pub fn inner_pin(self: Pin<&mut Self>) -> Pin<&mut F> {
         self.project().inner
     }
 
+    #[inline]
     pub fn group_token(&self) -> Option<&T> {
         self.token.as_ref()
     }
@@ -69,6 +76,7 @@ impl<F, T> GroupTokenReleaseOnReady<F, T> {
 impl<F: Future, T> Future for GroupTokenReleaseOnDrop<F, T> {
     type Output = F::Output;
 
+    #[inline]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.inner_pin().poll(cx)
     }
@@ -77,6 +85,7 @@ impl<F: Future, T> Future for GroupTokenReleaseOnDrop<F, T> {
 impl<F: Future, T> Future for GroupTokenReleaseOnReady<F, T> {
     type Output = F::Output;
 
+    #[inline]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let res = this.inner.poll(cx);

@@ -1,4 +1,5 @@
-#[cfg(not(loom))]
 mod default;
-#[cfg(loom)]
 mod loom;
+mod panic;
+mod traits;
+mod utils;

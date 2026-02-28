@@ -27,16 +27,18 @@
 //! ```rust
 //! # use compact_waitgroup::WaitGroup;
 //! # futures_executor::block_on(async {
-//! let (wg, token) = WaitGroup::new();
-//! let token_cloned = token.clone();
-//! assert!(!wg.is_done());
-//! std::thread::spawn(move || {
-//!     // Long-running task
-//!     token_cloned.release();
-//! });
-//! std::thread::spawn(move || {
-//!     // Another long-running task
-//!     token.release();
+//! let (wg, factory) = WaitGroup::new();
+//! factory.scope(|token| {
+//!     let token_cloned = token.clone();
+//!     assert!(!wg.is_done());
+//!     std::thread::spawn(move || {
+//!         // Long-running task
+//!         token_cloned.release();
+//!     });
+//!     std::thread::spawn(move || {
+//!         // Another long-running task
+//!         token.release();
+//!     });
 //! });
 //! // Wait for all tasks to complete
 //! wg.await;

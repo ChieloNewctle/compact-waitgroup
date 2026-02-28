@@ -1,114 +1,100 @@
 use core::pin::Pin;
 
-use alloc::{boxed::Box, sync::Arc};
-use futures_test::future::FutureTestExt;
+use alloc::boxed::Box;
 
-use crate::{GroupTokenExt, MonoWaitGroup, WaitGroup, utils::*};
+use crate::{
+    GroupTokenExt, MonoWaitGroup, WaitGroup,
+    tests::utils::{Arc, FutureTestExt, SharedData},
+};
 
-struct SharedData(AtomicU8);
-
-impl SharedData {
-    fn new() -> Self {
-        Self(AtomicU8::new(0))
-    }
-
-    fn load(&self) -> bool {
-        self.0.load(atomic::Acquire) != 0
-    }
-
-    fn store(&self) {
-        self.0.store(1, atomic::Release);
-    }
-}
-
-#[futures_test::test]
-async fn test_wg_await_background() {
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_wg_await_background() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (wg, handle) = WaitGroup::new();
+    let (bg_wg, bg_token) = MonoWaitGroup::new();
+    let (wg, token) = WaitGroup::new();
     async move {
         wg.await;
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
     assert!(!inspector.load());
-    handle.release();
+    token.release();
     bg_wg.await;
     assert!(inspector.load());
 }
 
-#[futures_test::test]
-async fn test_wg_await_background_twice() {
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_wg_await_background_twice() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (wg, handle_a) = WaitGroup::new();
-    let handle_b = handle_a.clone();
+    let (bg_wg, bg_token) = MonoWaitGroup::new();
+    let (wg, token) = WaitGroup::new();
+    let (token_a, token_b) = token.scope(|token| (token.clone(), token));
     async move {
         wg.await;
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
     assert!(!inspector.load());
-    handle_a.release();
+    token_a.release();
     for _ in 0..100 {
         assert!(!inspector.load());
     }
-    handle_b.release();
+    token_b.release();
     bg_wg.await;
     assert!(inspector.load());
 }
 
-#[futures_test::test]
-async fn test_wg_await_background_twice_rev() {
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_wg_await_background_twice_rev() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (wg, handle_a) = WaitGroup::new();
-    let handle_b = handle_a.clone();
+    let (bg_wg, bg_token) = MonoWaitGroup::new();
+    let (wg, token) = WaitGroup::new();
+    let (token_a, token_b) = token.scope(|token| (token.clone(), token));
     async move {
         wg.await;
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
     assert!(!inspector.load());
-    handle_b.release();
+    token_b.release();
     for _ in 0..100 {
         assert!(!inspector.load());
     }
-    handle_a.release();
+    token_a.release();
     bg_wg.await;
     assert!(inspector.load());
 }
 
-#[futures_test::test]
-async fn test_mono_wg_await_background() {
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_mono_wg_await_background() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (wg, handle) = MonoWaitGroup::new();
+    let (bg_wg, bg_token) = MonoWaitGroup::new();
+    let (wg, token) = MonoWaitGroup::new();
     async move {
         wg.await;
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
     assert!(!inspector.load());
-    handle.release();
+    token.release();
     bg_wg.await;
     assert!(inspector.load());
 }
 
-#[futures_test::test]
-async fn test_mono_wg_pinned_drop_in_another_thread() {
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_mono_wg_pinned_drop_in_another_thread() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (mut wg, handle) = MonoWaitGroup::new();
+    let (bg_wg, bg_token) = MonoWaitGroup::new();
+    let (mut wg, token) = MonoWaitGroup::new();
     async move {
         let wg_pin = Pin::new(&mut wg);
         wg_pin.await;
@@ -118,87 +104,90 @@ async fn test_mono_wg_pinned_drop_in_another_thread() {
         .run_in_background();
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
     assert!(!inspector.load());
-    handle.release();
+    token.release();
     bg_wg.await;
     assert!(inspector.load());
 }
 
-#[futures_test::test]
-async fn test_wg_await() {
-    let (wg, handle) = WaitGroup::new();
-    handle.release();
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_wg_await() {
+    let (wg, token) = WaitGroup::new();
+    token.release();
     wg.await;
 }
 
-#[futures_test::test]
-async fn test_wg_await_multiple_repeat_n() {
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_wg_await_multiple_repeat_n() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (wg, handle) = WaitGroup::new();
+    let (bg_wg, bg_token) = MonoWaitGroup::new();
+    let (wg, factory) = WaitGroup::new();
     async move {
         wg.await;
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
 
     assert!(!inspector.load());
 
-    for handle in core::iter::repeat_n(handle, 100) {
+    for token in core::iter::repeat_n(factory.into_token(), 100) {
         assert!(!inspector.load());
-        handle.release();
+        token.release();
     }
 
     bg_wg.await;
     assert!(inspector.load());
 }
 
-#[futures_test::test]
-async fn test_wg_await_multiple_repeat_with() {
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_wg_await_multiple_repeat_with() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (wg, handle) = WaitGroup::new();
+    let (bg_wg, bg_token) = MonoWaitGroup::new();
+    let (wg, factory) = WaitGroup::new();
     async move {
         wg.await;
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
 
     assert!(!inspector.load());
 
-    for handle in core::iter::repeat_with(move || handle.clone()).take(100) {
+    for token in factory
+        .scope(|token| core::iter::repeat_with(move || token.clone()))
+        .take(100)
+    {
         assert!(!inspector.load());
-        handle.release();
+        token.release();
     }
 
     bg_wg.await;
     assert!(inspector.load());
 }
 
-#[futures_test::test]
-async fn test_wg_await_pin_multiple_repeat_n() {
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_wg_await_pin_multiple_repeat_n() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (mut bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (wg, handle) = WaitGroup::new();
+    let (mut bg_wg, bg_token) = MonoWaitGroup::new();
+    let (wg, factory) = WaitGroup::new();
     async move {
         wg.await;
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
 
     assert!(!inspector.load());
 
-    for handle in core::iter::repeat_n(handle, 100) {
+    for token in core::iter::repeat_n(factory.into_token(), 100) {
         assert!(!inspector.load());
-        handle.release();
+        token.release();
     }
 
     let mut bg_wg = Pin::new(&mut bg_wg);
@@ -207,24 +196,27 @@ async fn test_wg_await_pin_multiple_repeat_n() {
     assert!(bg_wg.is_done());
 }
 
-#[futures_test::test]
-async fn test_wg_await_pin_multiple_repeat_with() {
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_wg_await_pin_multiple_repeat_with() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (mut bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (wg, handle) = WaitGroup::new();
+    let (mut bg_wg, bg_token) = MonoWaitGroup::new();
+    let (wg, factory) = WaitGroup::new();
     async move {
         wg.await;
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
 
     assert!(!inspector.load());
 
-    for handle in core::iter::repeat_with(move || handle.clone()).take(100) {
+    for token in factory
+        .scope(|token| core::iter::repeat_with(move || token.clone()))
+        .take(100)
+    {
         assert!(!inspector.load());
-        handle.release();
+        token.release();
     }
 
     let mut bg_wg = Pin::new(&mut bg_wg);
@@ -233,35 +225,40 @@ async fn test_wg_await_pin_multiple_repeat_with() {
     assert!(bg_wg.is_done());
 }
 
-#[futures_test::test]
-async fn test_wg_await_pin_multiple_threads() {
+#[cfg(not(loom))]
+const _TESTING_THREADS: usize = 16;
+#[cfg(loom)]
+const _TESTING_THREADS: usize = 2;
+
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_mono_wg_await_pin_multiple_threads() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (mut bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (wg, handle) = WaitGroup::new();
+    let (mut bg_wg, bg_token) = MonoWaitGroup::new();
+    let (wg, factory) = WaitGroup::new();
     async move {
         wg.await;
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
 
     assert!(!inspector.load());
 
-    let handles = core::iter::repeat_n(handle, 8)
-        .map(|h| {
-            let (wg, handle) = WaitGroup::new();
+    let tokens = core::iter::repeat_n(factory.into_token(), _TESTING_THREADS)
+        .map(|t| {
+            let (wg, token) = MonoWaitGroup::new();
             async move {
                 wg.await;
-                h.release();
             }
+            .release_on_ready(t)
             .run_in_background();
-            handle
+            token
         })
         .collect::<Box<[_]>>();
 
     assert!(!inspector.load());
-    drop(handles);
+    drop(tokens);
 
     let mut bg_wg = Pin::new(&mut bg_wg);
     bg_wg.as_mut().await;
@@ -269,37 +266,35 @@ async fn test_wg_await_pin_multiple_threads() {
     assert!(bg_wg.is_done());
 }
 
-#[futures_test::test]
-#[cfg(panic = "unwind")]
-async fn test_wg_threads_panic() {
+#[cfg_attr(not(loom), futures_test::test)]
+pub async fn test_wg_await_pin_multiple_threads() {
     let canary = Arc::new(SharedData::new());
     let inspector = canary.clone();
-    let (mut bg_wg, bg_handle) = MonoWaitGroup::new();
-    let (wg, handle) = WaitGroup::new();
+    let (mut bg_wg, bg_token) = MonoWaitGroup::new();
+    let (wg, factory) = WaitGroup::new();
     async move {
         wg.await;
         canary.store();
     }
-    .release_on_ready(bg_handle)
+    .release_on_ready(bg_token)
     .run_in_background();
 
     assert!(!inspector.load());
 
-    let handles = core::iter::repeat_n(handle, 4)
-        .map(|h| {
-            let (wg, handle) = WaitGroup::new();
+    let tokens = core::iter::repeat_n(factory.into_token(), _TESTING_THREADS)
+        .map(|t| {
+            let (wg, factory) = WaitGroup::new();
             async move {
                 wg.await;
-                panic!();
             }
-            .release_on_ready(h)
+            .release_on_ready(t)
             .run_in_background();
-            handle
+            factory.into_token()
         })
         .collect::<Box<[_]>>();
 
     assert!(!inspector.load());
-    drop(handles);
+    drop(tokens);
 
     let mut bg_wg = Pin::new(&mut bg_wg);
     bg_wg.as_mut().await;
