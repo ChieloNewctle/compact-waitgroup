@@ -101,6 +101,7 @@ impl<T: TwinRefType> TwinRefPtr<T> {
 
 #[derive(Debug, Deref)]
 pub(crate) struct TwinRef<T: TwinRefType>(TwinRefPtr<T>);
+
 #[derive(Debug, Deref)]
 pub(crate) struct ClonableTwinRef<T: TwinRefType + ClonableTwinRefType>(TwinRefPtr<T>);
 

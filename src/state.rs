@@ -30,17 +30,7 @@ impl UnwindSafe for MonoWgInner {}
 impl RefUnwindSafe for MonoWgInner {}
 
 impl MonoWgInner {
-    #[cfg(not(loom))]
     #[inline]
-    pub const fn new() -> Self {
-        Self {
-            twin_count: AtomicU8::new(2),
-            state: AtomicU8::new(0),
-            data: UnsafeCell::new(WaitGroupData::None),
-        }
-    }
-
-    #[cfg(loom)]
     pub fn new() -> Self {
         Self {
             twin_count: AtomicU8::new(2),
@@ -64,16 +54,7 @@ const _: () = {
 };
 
 impl SharedWgInner {
-    #[cfg(not(loom))]
     #[inline]
-    pub const fn new() -> Self {
-        Self {
-            cloned_count: AtomicUsize::new(1),
-            inner: MonoWgInner::new(),
-        }
-    }
-
-    #[cfg(loom)]
     pub fn new() -> Self {
         Self {
             cloned_count: AtomicUsize::new(1),
