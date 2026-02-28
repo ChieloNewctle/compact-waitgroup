@@ -1,7 +1,7 @@
 use derive_more::Deref;
 
 use crate::{
-    twin_ref::{ClonableTwinRefType, TwinRef, TwinRefType},
+    twin_ref::{ClonableTwinRefLayout, TwinRef, TwinRefLayout},
     utils::*,
 };
 
@@ -27,7 +27,7 @@ impl Canary {
     }
 }
 
-unsafe impl TwinRefType for Canary {
+unsafe impl TwinRefLayout for Canary {
     fn count(&self) -> &AtomicU8 {
         &self.twin_count
     }
@@ -51,13 +51,13 @@ impl Data {
     }
 }
 
-unsafe impl TwinRefType for Data {
+unsafe impl TwinRefLayout for Data {
     fn count(&self) -> &AtomicU8 {
         &self.twin_count
     }
 }
 
-unsafe impl ClonableTwinRefType for Data {
+unsafe impl ClonableTwinRefLayout for Data {
     fn cloned_count(&self) -> &AtomicUsize {
         &self.cloned_count
     }

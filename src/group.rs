@@ -4,15 +4,15 @@ use core::{
 };
 
 use crate::{
-    core_impl::{WaitGroupUtil, WaitGroupWrapper},
-    state::SharedWgInner,
+    layout::SharedLayout,
+    sync::{WaitGroupLayoutExt, WaitGroupWrapper},
     twin_ref::{ClonableTwinRef, TwinRef},
 };
 
 #[cfg(feature = "compact-mono")]
-type MonoInner = crate::state::MonoWgInner;
+type MonoInner = crate::layout::MonoLayout;
 #[cfg(not(feature = "compact-mono"))]
-type MonoInner = crate::state::SharedWgInner;
+type MonoInner = crate::layout::SharedLayout;
 
 /// WaitGroup with clonable worker handles.
 ///
@@ -42,7 +42,7 @@ type MonoInner = crate::state::SharedWgInner;
 /// ```
 #[must_use]
 #[derive(Debug)]
-pub struct WaitGroup(WaitGroupWrapper<TwinRef<SharedWgInner>>);
+pub struct WaitGroup(WaitGroupWrapper<TwinRef<SharedLayout>>);
 
 /// WaitGroup with a single non-clonable worker handle.
 ///
@@ -78,7 +78,7 @@ pub struct MonoWaitGroup(WaitGroupWrapper<TwinRef<MonoInner>>);
 #[must_use]
 #[derive(Clone, Debug)]
 pub struct WorkerHandle {
-    _handle: ClonableTwinRef<SharedWgInner>,
+    _handle: ClonableTwinRef<SharedLayout>,
 }
 
 /// Non-clonable worker handle.
@@ -101,7 +101,7 @@ impl WaitGroup {
     /// // ... distribute handle ...
     /// ```
     pub fn new() -> (Self, WorkerHandle) {
-        let inner = SharedWgInner::new();
+        let inner = SharedLayout::new();
         let (wg, handle) = TwinRef::new_clonable(inner);
         (
             Self(WaitGroupWrapper::new(wg)),
@@ -185,22 +185,6 @@ impl Future for MonoWaitGroup {
     #[inline]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut self.0).poll(cx)
-    }
-}
-
-#[cfg(feature = "futures-core")]
-impl futures_core::FusedFuture for WaitGroup {
-    #[inline]
-    fn is_terminated(&self) -> bool {
-        self.0.is_terminated()
-    }
-}
-
-#[cfg(feature = "futures-core")]
-impl futures_core::FusedFuture for MonoWaitGroup {
-    #[inline]
-    fn is_terminated(&self) -> bool {
-        self.0.is_terminated()
     }
 }
 

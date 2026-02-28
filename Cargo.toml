@@ -13,14 +13,12 @@ readme = "README.md"
 exclude = ["release-plz.toml", ".github"]
 
 [features]
-futures-core = ["dep:futures-core"]
 portable-atomic = ["dep:portable-atomic"]
 compact-mono = []
 
 [dependencies]
-derive_more = { version = "2.1.1", default-features = false, features = ["constructor", "deref", "into"] }
-futures-core = { version = "0.3.32", default-features = false, optional = true }
-pin-project-lite = { version = "0.2.16", default-features = false }
+derive_more = { version = "2.1.1", default-features = false, features = ["constructor", "debug", "deref", "into"] }
+pin-project-lite = { version = "0.2.17", default-features = false }
 portable-atomic = { version = "1.13.1", default-features = false, optional = true }
 
 [dev-dependencies]
